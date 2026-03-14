@@ -156,51 +156,7 @@ const RegisterPage = () => {
         setLoading(true);
 
         try {
-            // 1. Upload Photos
-            const photoUrls: string[] = [];
-            if (formData.photos.length > 0) {
-                for (const file of formData.photos) {
-                    const fileExt = file.name.split('.').pop();
-                    const fileName = Date.now() + '-' + Math.random().toString(36).substring(7) + '.' + fileExt;
-                    const filePath = 'uploads/' + fileName;
-
-                    const { error: uploadError } = await supabase.storage
-                        .from('profile-photos')
-                        .upload(filePath, file);
-
-                    if (uploadError) {
-                        console.error('Error uploading photo:', uploadError);
-                        continue; // Skip failed uploads but continue registration
-                    }
-
-                    const { data: { publicUrl } } = supabase.storage
-                        .from('profile-photos')
-                        .getPublicUrl(filePath);
-
-                    photoUrls.push(publicUrl);
-                }
-            }
-
-            // 2. Upload Horoscope
-            let horoscopeUrl = '';
-            if (formData.horoscopeFile) {
-                const fileExt = formData.horoscopeFile.name.split('.').pop();
-                const fileName = 'horoscope-' + Date.now() + '.' + fileExt;
-                const filePath = 'uploads/' + fileName;
-
-                const { error: uploadError } = await supabase.storage
-                    .from('profile-photos')
-                    .upload(filePath, formData.horoscopeFile);
-
-                if (!uploadError) {
-                    const { data: { publicUrl } } = supabase.storage
-                        .from('profile-photos')
-                        .getPublicUrl(filePath);
-                    horoscopeUrl = publicUrl;
-                }
-            }
-
-            // 3. Register User
+            // 1. Register User Action
             const { data, error: signUpError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.password,
@@ -243,15 +199,63 @@ const RegisterPage = () => {
                         about_me: formData.aboutMe,
                         phone: formData.phone,
                         about_family: formData.aboutFamily,
-                        photos: photoUrls,
-                        photo_url: photoUrls.length > 0 ? photoUrls[0] : null,
-                        horoscope_file: horoscopeUrl
                     },
                 },
             });
 
             if (signUpError) throw signUpError;
 
+            if (data.user && !data.session) {
+                await supabase.auth.signInWithPassword({
+                    email: formData.email,
+                    password: formData.password,
+                });
+            }
+
+            // 2. Upload Photos (Now Authenticated)
+            const photoUrls: string[] = [];
+            if (formData.photos.length > 0) {
+                for (const file of formData.photos) {
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = Date.now() + '-' + Math.random().toString(36).substring(7) + '.' + fileExt;
+                    const filePath = 'uploads/' + fileName;
+
+                    const { error: uploadError } = await supabase.storage
+                        .from('profile-photos')
+                        .upload(filePath, file);
+
+                    if (uploadError) {
+                        console.error('CRITICAL: Photo upload failed:', uploadError.message);
+                        alert(`Photo upload failed: ${uploadError.message}. We will continue registration, but you may need to upload photos later.`);
+                        continue; // Skip failed uploads but continue registration
+                    }
+
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('profile-photos')
+                        .getPublicUrl(filePath);
+
+                    photoUrls.push(publicUrl);
+                }
+            }
+
+            // 3. Upload Horoscope
+            let horoscopeUrl = '';
+            if (formData.horoscopeFile) {
+                const fileExt = formData.horoscopeFile.name.split('.').pop();
+                const fileName = 'horoscope-' + Date.now() + '.' + fileExt;
+                const filePath = 'uploads/' + fileName;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('profile-photos')
+                    .upload(filePath, formData.horoscopeFile);
+
+                if (!uploadError) {
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('profile-photos')
+                        .getPublicUrl(filePath);
+                    horoscopeUrl = publicUrl;
+                }
+            }
             // 4. Update Profile explicitly (Fallback/Sync)
             if (data.user) {
                 if (!data.session) {
@@ -301,18 +305,25 @@ const RegisterPage = () => {
                     photos: photoUrls,
                     photo_url: photoUrls.length > 0 ? photoUrls[0] : null,
                     updated_at: new Date().toISOString(),
-                    id: data.user.id, // Required for upsert
                 };
 
+                // Use update instead of upsert since the trigger already creates the row
                 const { error: updateError } = await supabase
                     .from('profiles')
-                    .upsert(updates) // Changed from update to upsert
-                    .select();
+                    .update(updates)
+                    .eq('id', data.user.id);
 
                 if (updateError) {
-                    console.error("Manual profile upsert failed:", updateError);
-                    // Don't throw, let the user proceed
+                    console.error("Manual profile update failed:", updateError.message);
+                    // If update fails, it's likely RLS/Auth. 
+                    // But trigger already saved the text fields!
+                    // Just remind the user to check their email.
+                    alert("Profile created! Please check your email to confirm your account and see your photos.");
+                } else {
+                    console.log("Profile updated successfully with photos.");
                 }
+            } else {
+                console.log("Registration succeeded, but no session yet. Waiting for email confirmation?");
             }
 
             alert("Registration successful! Please login.");

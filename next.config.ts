@@ -4,7 +4,6 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
   images: {
-    domains: ["xqxbwknstbzakeipvljhc.supabase.co"],
     remotePatterns: [
       {
         protocol: "https",
@@ -12,7 +11,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "xqxbwknstbzakeipvljhc.supabase.co",
+        hostname: "xqxbwknstbzakepvljhc.supabase.co",
         port: "",
         pathname: "/**",
       },

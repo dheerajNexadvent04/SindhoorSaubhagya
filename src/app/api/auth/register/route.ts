@@ -72,7 +72,7 @@ export async function POST(request: Request) {
                 caste_id: validatedData.casteId,
                 status: 'pending' // Enforce pending status until verified/approved
             })
-            .eq('user_id', authData.user.id);
+            .eq('id', authData.user.id);
 
         if (profileError) {
             console.error("Profile Error:", profileError);

@@ -49,7 +49,7 @@ export async function GET(request: Request) {
         sub_castes(name),
         profile_photos(id, photo_url, is_primary)
       `)
-            .eq('user_id', user.id)
+            .eq('id', user.id)
             .single();
 
         if (error) {
@@ -91,7 +91,7 @@ export async function PUT(request: Request) {
                 ...validatedData,
                 updated_at: new Date().toISOString()
             })
-            .eq('user_id', user.id)
+            .eq('id', user.id)
             .select()
             .single();
 

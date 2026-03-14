@@ -149,7 +149,7 @@ const Hero = () => {
             try {
                 const { data, error } = await supabase
                     .from('profiles')
-                    .select('id')
+                    .select('user_id')
                     .eq('email', formData.email)
                     .maybeSingle();
 
@@ -204,59 +204,6 @@ const Hero = () => {
         setError(null);
 
         try {
-            // 1. Upload Photos
-            const photoUrls: string[] = [];
-            if (formData.photos.length > 0) {
-                // We need a user ID to store files, but we don't have one yet.
-                // Strategy: Upload to a temporary location or use a unique identifier (like email hash or timestamp)
-                // Better Strategy for SignUp: Use a random folder name first, then we could move it, 
-                // but simpler is to just use a timestamp-based folder for now since we don't have the UID yet.
-                // OR: Authenticate anonymously? No.
-                // actually, we can't upload to a user-specific folder securely before signup if strict RLS is on.
-                // Assuming public bucket or open upload policy for now as per plan.
-
-                for (const file of formData.photos) {
-                    const fileExt = file.name.split('.').pop();
-                    const fileName = Date.now() + '-' + Math.random().toString(36).substring(7) + '.' + fileExt;
-                    const filePath = 'uploads/' + fileName;
-
-                    const { error: uploadError } = await supabase.storage
-                        .from('profile-photos')
-                        .upload(filePath, file);
-
-                    if (uploadError) {
-                        console.error('Error uploading photo:', uploadError);
-                        alert(`Photo upload failed: ${uploadError.message}. Check storage permissions.`);
-                        continue;
-                    }
-
-                    const { data: { publicUrl } } = supabase.storage
-                        .from('profile-photos')
-                        .getPublicUrl(filePath);
-
-                    photoUrls.push(publicUrl);
-                }
-            }
-
-            // 2. Upload Horoscope
-            let horoscopeUrl = '';
-            if (formData.horoscopeFile) {
-                const fileExt = formData.horoscopeFile.name.split('.').pop();
-                const fileName = 'horoscope-' + Date.now() + '.' + fileExt;
-                const filePath = 'uploads/' + fileName;
-
-                const { error: uploadError } = await supabase.storage
-                    .from('profile-photos') // Using same bucket for simplicity
-                    .upload(filePath, formData.horoscopeFile);
-
-                if (!uploadError) {
-                    const { data: { publicUrl } } = supabase.storage
-                        .from('profile-photos')
-                        .getPublicUrl(filePath);
-                    horoscopeUrl = publicUrl;
-                }
-            }
-
             const { data, error: signUpError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.password,
@@ -299,14 +246,67 @@ const Hero = () => {
                         about_me: formData.aboutMe,
                         phone: formData.phone,
                         about_family: formData.aboutFamily,
-                        photos: photoUrls,
-                        photo_url: photoUrls.length > 0 ? photoUrls[0] : null, // Added photo_url for trigger
-                        horoscope_file: horoscopeUrl
+                        // photos and photo_url are left null initially; we'll update them after upload
                     },
                 },
             });
 
             if (signUpError) throw signUpError;
+
+            // 2. We now have a user. If we don't have a session, we need to sign in to upload photos.
+            // Normally signUp returns a session if email confirmation is off, else it doesn't.
+            if (data.user && !data.session) {
+                const { error: signInErr } = await supabase.auth.signInWithPassword({
+                    email: formData.email,
+                    password: formData.password,
+                });
+                if (signInErr) console.warn("Auto-signin failed after signup:", signInErr);
+            }
+
+            // 3. Upload Photos (User is now authenticated)
+            const photoUrls: string[] = [];
+            if (formData.photos.length > 0) {
+                for (const file of formData.photos) {
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = Date.now() + '-' + Math.random().toString(36).substring(7) + '.' + fileExt;
+                    const filePath = 'uploads/' + fileName;
+
+                    const { error: uploadError } = await supabase.storage
+                        .from('profile-photos')
+                        .upload(filePath, file);
+
+                    if (uploadError) {
+                        console.error('Error uploading photo:', uploadError);
+                        alert(`Photo upload failed: ${uploadError.message}. Check storage permissions. Profile created without photo.`);
+                        continue;
+                    }
+
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('profile-photos')
+                        .getPublicUrl(filePath);
+
+                    photoUrls.push(publicUrl);
+                }
+            }
+
+            // 4. Upload Horoscope
+            let horoscopeUrl = '';
+            if (formData.horoscopeFile) {
+                const fileExt = formData.horoscopeFile.name.split('.').pop();
+                const fileName = 'horoscope-' + Date.now() + '.' + fileExt;
+                const filePath = 'uploads/' + fileName;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('profile-photos')
+                    .upload(filePath, formData.horoscopeFile);
+
+                if (!uploadError) {
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('profile-photos')
+                        .getPublicUrl(filePath);
+                    horoscopeUrl = publicUrl;
+                }
+            }
 
             // Explicitly update profile with photos and other complex data to ensure sync
             // This runs after trigger creates the profile row
@@ -363,13 +363,13 @@ const Hero = () => {
                     photos: photoUrls,
                     photo_url: photoUrls.length > 0 ? photoUrls[0] : null, // Set main photo
                     updated_at: new Date().toISOString(),
-                    id: data.user.id, // Required for upsert
+                    user_id: data.user.id, // Match the Foreign Key in the profiles table
                 };
 
                 const { error: updateError } = await supabase
                     .from('profiles')
-                    .upsert(updates)
-                    .select();
+                    .update(updates)
+                    .eq('user_id', data.user.id);
 
                 if (updateError) {
                     console.error("Error updating profile (fallback):", updateError);

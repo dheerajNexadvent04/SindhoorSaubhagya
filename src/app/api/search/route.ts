@@ -44,7 +44,7 @@ export async function GET(request: Request) {
         profile_photos(photo_url, is_primary)
       `, { count: 'exact' })
             .eq('status', 'approved') // Only show approved profiles
-            .neq('user_id', session.user.id); // Don't show self
+            .neq('id', session.user.id); // Don't show self
 
         // Apply Filters
         if (gender) {

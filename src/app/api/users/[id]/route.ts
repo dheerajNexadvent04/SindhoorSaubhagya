@@ -23,7 +23,6 @@ export async function GET(
             .from('profiles')
             .select(`
         id,
-        user_id,
         first_name,
         last_name,
         gender,

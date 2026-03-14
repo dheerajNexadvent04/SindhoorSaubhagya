@@ -49,7 +49,11 @@ export default function AdminUserDetails({ userId }: { userId: string }) {
             if (data) {
                 setPhotoUrl(data.photo_url);
                 setPhotos(data.photos || []);
-                setFormData({ ...data, status: data.status || 'pending' });
+                setFormData({ 
+                    ...data, 
+                    dob: data.date_of_birth || '', // Map DB field to form field
+                    status: data.status || 'pending' 
+                });
             }
         } catch (error) {
             console.error('Error fetching profile:', error);
@@ -71,10 +75,12 @@ export default function AdminUserDetails({ userId }: { userId: string }) {
         try {
             const updates = {
                 ...formData,
+                date_of_birth: formData.dob || null, // Map back to DB field
                 updated_at: new Date().toISOString(),
             };
-            // Remove id from updates if present
+            // Remove helper fields
             delete updates.id;
+            delete updates.dob;
 
             const { error } = await supabase
                 .from('profiles')
@@ -103,7 +109,16 @@ export default function AdminUserDetails({ userId }: { userId: string }) {
                     className="w-full p-2 border border-gray-300 rounded focus:ring-red-500 focus:border-red-500"
                 >
                     <option value="">Select</option>
-                    {options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
+                    {options.map((opt: string) => (
+                        <option key={opt} value={opt}>
+                            {opt === 'friend' ? 'Relative/Friend' : 
+                             opt === 'self' ? 'Self' :
+                             opt === 'parent' ? 'Parent' :
+                             opt === 'sibling' ? 'Sibling' :
+                             opt === 'relative' ? 'Relative' :
+                             opt.charAt(0).toUpperCase() + opt.slice(1)}
+                        </option>
+                    ))}
                 </select>
             ) : (
                 <input
@@ -207,11 +222,14 @@ export default function AdminUserDetails({ userId }: { userId: string }) {
                                 <InputGroup label="First Name" name="first_name" />
                                 <InputGroup label="Last Name" name="last_name" />
                                 <InputGroup label="Date of Birth" name="dob" type="date" />
-                                <InputGroup label="Gender" name="gender" options={['Male', 'Female']} />
+                                <InputGroup label="Gender" name="gender" options={['male', 'female']} />
                                 <InputGroup label="Height (cm)" name="height" type="number" />
                                 <InputGroup label="Weight (kg)" name="weight" type="number" />
                                 <InputGroup label="Marital Status" name="marital_status" options={['Never Married', 'Divorced', 'Widowed', 'Awaiting Divorce']} />
-                                <InputGroup label="Profile For" name="profile_for" options={['Self', 'Son', 'Daughter', 'Brother', 'Sister', 'Relative', 'Friend']} />
+                                <InputGroup label="Profile For" name="profile_for" options={['self', 'son', 'daughter', 'brother', 'sister', 'friend', 'other']} />
+                                <InputGroup label="Managed By" name="managed_by" options={['self', 'parent', 'sibling', 'relative']} />
+                                <InputGroup label="Phone" name="phone" />
+                                <InputGroup label="Email" name="email" type="email" />
                             </div>
                         </section>
 

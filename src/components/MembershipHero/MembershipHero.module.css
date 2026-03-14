@@ -1,0 +1,201 @@
+.heroSection {
+    background: radial-gradient(ellipse at 70% 40%, #c4201c 0%, #580606 80%);
+    color: white;
+    padding: 60px 0 0 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.contentCol {
+    flex: 1.2;
+    padding-bottom: 60px;
+    z-index: 2;
+}
+
+.badgeContainer {
+    margin-bottom: 24px;
+}
+
+.badgeImage {
+    height: 40px;
+    width: auto;
+}
+
+.heading {
+    font-size: 2.8rem;
+    line-height: 1.25;
+    margin-bottom: 20px;
+    font-weight: 300;
+}
+
+.heading strong {
+    font-weight: 700;
+}
+
+.subHeading {
+    font-size: 1.1rem;
+    margin-bottom: 32px;
+    font-weight: 300;
+}
+
+/* Form Styles */
+.formContainer {
+    background: white;
+    border-radius: 50px;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 8px 8px 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    color: #333;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    padding: 0 24px;
+    min-width: 180px;
+}
+
+.borderRight {
+    border-right: 1px solid #e0e0e0;
+}
+
+.label {
+    font-size: 0.85rem;
+    color: #333;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.select,
+.input {
+    border: none;
+    outline: none;
+    font-size: 0.95rem;
+    color: #666;
+    background: transparent;
+    width: 100%;
+    padding: 0;
+    font-family: inherit;
+}
+
+.select {
+    cursor: pointer;
+    appearance: none;
+}
+
+.submitButton {
+    background: linear-gradient(135deg, #f8d79a, #dba257);
+    color: #4a2f0f;
+    border: none;
+    border-radius: 40px;
+    padding: 14px 40px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    white-space: nowrap;
+    margin-left: 12px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.submitButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(219, 162, 87, 0.4);
+}
+
+.imageCol {
+    flex: 0.8;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+    position: relative;
+    height: 600px;
+    margin-bottom: -10px;
+    /* To anchor image to the bottom */
+}
+
+.imageWrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-width: 500px;
+}
+
+.personImage {
+    object-fit: contain;
+    object-position: bottom right;
+}
+
+/* Mobile Responsive */
+@media (max-width: 900px) {
+    .container {
+        flex-direction: column;
+        padding: 0;
+    }
+
+    .heroSection {
+        background: radial-gradient(circle at 50% 30%, #c4201c 0%, #580606 80%);
+        padding: 0;
+    }
+
+    .contentCol {
+        padding: 0 20px 40px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .imageCol {
+        height: 450px;
+        width: 100%;
+        order: -1;
+        margin-bottom: 20px;
+    }
+
+    .imageWrapper {
+        min-width: 100%;
+    }
+
+    .personImage {
+        object-position: bottom center;
+    }
+
+    .heading {
+        font-size: 2.2rem;
+    }
+
+    .formContainer {
+        flex-direction: column;
+        border-radius: 12px;
+        padding: 20px;
+        align-items: stretch;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .formGroup {
+        padding: 12px 0;
+        min-width: 100%;
+    }
+
+    .borderRight {
+        border-right: none;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .submitButton {
+        margin-left: 0;
+        margin-top: 16px;
+        padding: 16px;
+        border-radius: 25px;
+        width: 100%;
+    }
+}

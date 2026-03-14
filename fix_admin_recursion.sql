@@ -20,11 +20,6 @@ CREATE POLICY "Admins can view all admins" ON public.admin_users
     FOR SELECT
     USING (is_admin());
 
-CREATE POLICY "Super Admins can manage admins" ON public.admin_users
-    FOR ALL
-    USING (
-        auth.uid() IN (SELECT user_id FROM public.admin_users WHERE role = 'super_admin' AND is_active = TRUE)
-    ); 
 -- Note: The super admin check might still recurse if we aren't careful, 
 -- but since is_admin() is optimized, let's fix this one too for safety:
 

@@ -107,7 +107,7 @@ export default function Dashboard() {
                 <div className={styles.userWidget}>
                     {profile?.photo_url ? (
                         <Image
-                            src={profile.photo_url}
+                            src={profile.photo_url || (profile.photos && profile.photos[0]) || "/image 1.png"}
                             alt="User"
                             width={40}
                             height={40}

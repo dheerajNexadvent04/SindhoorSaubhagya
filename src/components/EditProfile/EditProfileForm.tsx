@@ -243,7 +243,11 @@ const EditProfileForm = () => {
                 sisters_married: formData.sisters_married ? parseInt(formData.sisters_married) : 0,
                 native_city: formData.native_city,
                 family_location: formData.family_location,
-                about_family: formData.about_family, // Uncommented
+                about_family: formData.about_family,
+                
+                // Ensure photos are included in final save
+                photo_url: photoUrl,
+                photos: photos,
 
                 updated_at: new Date().toISOString(),
             };

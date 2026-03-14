@@ -18,8 +18,8 @@ const Navbar = () => {
         setIsMobileMenuOpen(!isMobileMenuOpen);
     };
 
-    // Hide Navbar on Admin pages
-    if (pathname?.startsWith('/admin')) {
+    // Hide Navbar on Admin and Dashboard pages
+    if (pathname?.startsWith('/admin') || pathname?.startsWith('/dashboard')) {
         return null;
     }
 
