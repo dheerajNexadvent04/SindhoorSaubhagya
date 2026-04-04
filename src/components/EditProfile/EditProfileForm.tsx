@@ -9,9 +9,9 @@ import { useAuth } from '@/context/AuthProvider';
 import { useRouter } from 'next/navigation';
 
 const EditProfileForm = () => {
-    const { user, loading: authLoading, refreshSession } = useAuth();
+    const { user, profile: authProfile, loading: authLoading, refreshSession } = useAuth();
     const router = useRouter();
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(() => !authProfile);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false); // New state for tracking save status
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -82,6 +82,20 @@ const EditProfileForm = () => {
             throw error;
         }
     };
+    const hydrateFromCachedProfile = React.useCallback(() => {
+        if (!authProfile) return;
+
+        setPhotoUrl(authProfile.photo_url || authProfile.photos?.[0] || null);
+        setPhotos(authProfile.photos || []);
+        setFormData((currentData) => ({
+            ...currentData,
+            first_name: authProfile.first_name || currentData.first_name,
+            last_name: authProfile.last_name || currentData.last_name,
+            gender: authProfile.gender || currentData.gender,
+        }));
+        setLoading(false);
+    }, [authProfile]);
+
     const fetchProfile = async (userId: string) => {
         try {
             const { data, error } = await supabase
@@ -144,6 +158,10 @@ const EditProfileForm = () => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        hydrateFromCachedProfile();
+    }, [hydrateFromCachedProfile]);
 
     useEffect(() => {
         const loadProfile = async () => {

@@ -16,6 +16,12 @@ interface UserProfile {
 }
 
 const PROFILE_CACHE_KEY = 'sindoor_auth_profile';
+const USER_CACHE_KEY = 'sindoor_auth_user';
+
+type CachedUser = {
+    id: string;
+    email: string | null;
+};
 
 const readCachedProfile = (): UserProfile | null => {
     if (typeof window === 'undefined') return null;
@@ -45,6 +51,34 @@ const writeCachedProfile = (profile: UserProfile | null) => {
     }
 };
 
+const readCachedUser = (): CachedUser | null => {
+    if (typeof window === 'undefined') return null;
+
+    try {
+        const rawUser = window.localStorage.getItem(USER_CACHE_KEY);
+        if (!rawUser) return null;
+        return JSON.parse(rawUser) as CachedUser;
+    } catch (error) {
+        console.error('AuthProvider: failed to read cached user', error);
+        return null;
+    }
+};
+
+const writeCachedUser = (user: CachedUser | null) => {
+    if (typeof window === 'undefined') return;
+
+    try {
+        if (!user) {
+            window.localStorage.removeItem(USER_CACHE_KEY);
+            return;
+        }
+
+        window.localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+    } catch (error) {
+        console.error('AuthProvider: failed to write cached user', error);
+    }
+};
+
 interface AuthContextType {
     session: Session | null;
     user: User | null;
@@ -65,23 +99,31 @@ const AuthContext = createContext<AuthContextType>({
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [session, setSession] = useState<Session | null>(null);
-    const [user, setUser] = useState<User | null>(null);
+    const [user, setUser] = useState<User | null>(() => {
+        const cachedUser = readCachedUser();
+        return cachedUser ? ({ id: cachedUser.id, email: cachedUser.email } as User) : null;
+    });
     const [profile, setProfile] = useState<UserProfile | null>(() => readCachedProfile());
     const [loading, setLoading] = useState(true);
 
-    const applySession = async (nextSession: Session | null) => {
+    const applySession = (nextSession: Session | null) => {
         setSession(nextSession);
         setUser(nextSession?.user ?? null);
 
         if (nextSession?.user) {
+            writeCachedUser({
+                id: nextSession.user.id,
+                email: nextSession.user.email ?? null,
+            });
             const cachedProfile = readCachedProfile();
             if (cachedProfile && cachedProfile.id === nextSession.user.id) {
                 setProfile(cachedProfile);
             }
-            await fetchProfile(nextSession.user.id);
+            void fetchProfile(nextSession.user.id);
         } else {
             setProfile(null);
             writeCachedProfile(null);
+            writeCachedUser(null);
         }
     };
 
@@ -90,7 +132,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const { data: { session: localSession } } = await supabase.auth.getSession();
 
             if (localSession?.user) {
-                await applySession(localSession);
+                applySession(localSession);
                 return;
             }
 
@@ -100,7 +142,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
 
             if (remoteUser) {
-                await applySession({
+                applySession({
                     access_token: '',
                     refresh_token: '',
                     expires_in: 0,
@@ -109,11 +151,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     user: remoteUser,
                 } as Session);
             } else {
-                await applySession(null);
+                applySession(null);
             }
         } catch (error) {
             console.error("AuthProvider: syncAuthState error:", error);
-            await applySession(null);
+            applySession(null);
         }
     };
 
@@ -195,6 +237,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setProfile(null);
         setLoading(false);
         writeCachedProfile(null);
+        writeCachedUser(null);
         await supabase.auth.signOut();
     };
 
