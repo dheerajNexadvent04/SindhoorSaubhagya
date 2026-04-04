@@ -13,24 +13,36 @@ export default function AdminDashboard() {
         approvedProfiles: 0
     });
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     
     const [supabase] = useState(() => createClient());
 
-    const fetchStats = async () => {
-        setLoading(true);
+    const fetchStats = async (mode: 'initial' | 'refresh' = 'initial') => {
+        if (mode === 'initial') {
+            setLoading(true);
+        } else {
+            setRefreshing(true);
+        }
         setErrorMessage(null);
         try {
-            const [
-                { count: totalUsers, error: totalUsersError },
-                { count: pendingProfiles, error: pendingProfilesError },
-                { count: approvedProfiles, error: approvedProfilesError },
-            ] = await Promise.all([
+            const statsPromise = Promise.all([
                 supabase.from('profiles').select('*', { count: 'exact', head: true }),
                 supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
                 supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
             ]);
+
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('Admin stats request timed out. Please retry.')), 12000);
+            });
+
+            const statsResponse = await Promise.race([statsPromise, timeoutPromise]);
+            const [
+                { count: totalUsers, error: totalUsersError },
+                { count: pendingProfiles, error: pendingProfilesError },
+                { count: approvedProfiles, error: approvedProfilesError },
+            ] = statsResponse;
 
             if (totalUsersError || pendingProfilesError || approvedProfilesError) {
                 const message = (totalUsersError || pendingProfilesError || approvedProfilesError)?.message || 'Failed to load admin stats.';
@@ -48,6 +60,7 @@ export default function AdminDashboard() {
             setErrorMessage(error instanceof Error ? error.message : 'Failed to load admin stats.');
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
 
@@ -66,10 +79,11 @@ export default function AdminDashboard() {
     }, [supabase]);
 
     useEffect(() => {
-        void fetchStats();
+        void fetchStats('initial');
 
         const handleVisibilityOrFocus = () => {
-            void fetchStats();
+            if (document.visibilityState !== 'visible') return;
+            void fetchStats('refresh');
         };
 
         window.addEventListener('focus', handleVisibilityOrFocus);
@@ -96,6 +110,12 @@ export default function AdminDashboard() {
             {errorMessage && (
                 <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {errorMessage}
+                </div>
+            )}
+
+            {refreshing && !errorMessage && (
+                <div className="mb-6 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                    Refreshing latest stats...
                 </div>
             )}
 
@@ -174,11 +194,11 @@ export default function AdminDashboard() {
                         <p className="mt-2 text-red-400">If email is &quot;Not logged in&quot; but you are on this page, your session is out of sync.</p>
                     </div>
                     <div className="flex flex-col gap-2">
-                        <button 
-                            onClick={() => window.location.reload()}
+                        <button
+                            onClick={() => void fetchStats('initial')}
                             className="rounded-xl bg-slate-100 px-3 py-2 text-gray-600 hover:bg-slate-200"
                         >
-                            Hard Refresh
+                            Reload Stats
                         </button>
                         <button 
                             onClick={async () => {
