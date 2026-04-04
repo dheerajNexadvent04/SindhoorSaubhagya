@@ -130,29 +130,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const syncAuthState = async () => {
         try {
             const { data: { session: localSession } } = await supabase.auth.getSession();
-
-            if (localSession?.user) {
-                applySession(localSession);
-                return;
-            }
-
-            const { data: { user: remoteUser }, error } = await supabase.auth.getUser();
-            if (error) {
-                console.error("AuthProvider: getUser error:", error);
-            }
-
-            if (remoteUser) {
-                applySession({
-                    access_token: '',
-                    refresh_token: '',
-                    expires_in: 0,
-                    expires_at: 0,
-                    token_type: 'bearer',
-                    user: remoteUser,
-                } as Session);
-            } else {
-                applySession(null);
-            }
+            applySession(localSession ?? null);
         } catch (error) {
             console.error("AuthProvider: syncAuthState error:", error);
             applySession(null);
@@ -194,9 +172,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         getInitialSession();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
+            (event, session) => {
                 console.log("AuthProvider: onAuthStateChange event:", event, "User:", session?.user?.email);
-                await applySession(session);
+                applySession(session);
                 setLoading(false);
             }
         );

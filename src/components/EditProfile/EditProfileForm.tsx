@@ -9,7 +9,7 @@ import { useAuth } from '@/context/AuthProvider';
 import { useRouter } from 'next/navigation';
 
 const EditProfileForm = () => {
-    const { user, profile: authProfile, loading: authLoading, refreshSession } = useAuth();
+    const { session, user, profile: authProfile, loading: authLoading, refreshSession } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(() => !authProfile);
     const [saving, setSaving] = useState(false);
@@ -102,11 +102,11 @@ const EditProfileForm = () => {
                 .from('profiles')
                 .select('*')
                 .eq('id', userId)
-                .single();
+                .maybeSingle();
 
-            console.log("DEBUG: fetchProfile data:", data);
-            console.log("DEBUG: fetchProfile error:", error);
-            console.log("DEBUG: current user id:", userId);
+            if (error) {
+                throw error;
+            }
 
             if (data) {
                 setPhotoUrl(data.photo_url);
@@ -148,12 +148,17 @@ const EditProfileForm = () => {
                     sisters_married: data.sisters_married !== null ? data.sisters_married.toString() : '',
                     native_city: data.native_city || '',
                     family_location: data.family_location || '',
-                    about_family: data.about_family || '' // Note: about_family wasn't in schema but we should check if we need to add it or if it's there
+                    about_family: data.about_family || ''
                 });
                 setPhotoUrl(data.photo_url);
+            } else if (!authProfile) {
+                setMessage({ type: 'error', text: 'Unable to load profile data. Please refresh once.' });
             }
         } catch (error) {
             console.error('Error fetching profile:', error);
+            if (!authProfile) {
+                setMessage({ type: 'error', text: 'Unable to load profile data. Please refresh once.' });
+            }
         } finally {
             setLoading(false);
         }
@@ -165,28 +170,40 @@ const EditProfileForm = () => {
 
     useEffect(() => {
         const loadProfile = async () => {
-            if (authLoading) {
+            const contextSessionId = session?.user?.id;
+            const contextUserId = user?.id;
+            const directSessionId = (await supabase.auth.getSession()).data.session?.user?.id;
+            const resolvedUserId = contextSessionId || contextUserId || directSessionId;
+
+            if (!resolvedUserId) {
+                // Auth can hydrate slightly later after refresh; do not keep spinner forever.
+                if (!authLoading) {
+                    await refreshSession();
+                    setLoading(false);
+                }
                 return;
             }
 
-            if (user?.id) {
-                await fetchProfile(user.id);
-                return;
-            }
-
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user?.id) {
-                await fetchProfile(session.user.id);
+            await fetchProfile(resolvedUserId);
+            if (!contextSessionId) {
                 void refreshSession();
-                return;
             }
-
-            await refreshSession();
-            setLoading(false);
         };
 
         void loadProfile();
-    }, [user?.id, authLoading, refreshSession]);
+    }, [session?.user?.id, user?.id, authLoading, refreshSession]);
+
+    useEffect(() => {
+        if (!loading) return;
+        const timeoutId = window.setTimeout(() => {
+            setLoading(false);
+            setMessage((currentMessage) => currentMessage ?? {
+                type: 'error',
+                text: 'Profile is taking longer than expected to load. Please refresh once.',
+            });
+        }, 8000);
+        return () => window.clearTimeout(timeoutId);
+    }, [loading]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
