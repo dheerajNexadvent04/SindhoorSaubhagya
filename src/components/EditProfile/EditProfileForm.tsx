@@ -156,6 +156,13 @@ const EditProfileForm = () => {
                 return;
             }
 
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user?.id) {
+                await fetchProfile(session.user.id);
+                void refreshSession();
+                return;
+            }
+
             await refreshSession();
             setLoading(false);
         };

@@ -1,13 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
-import { Lock, Mail, AlertCircle } from 'lucide-react';
+import { Lock, Mail, AlertCircle, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 
 export default function AdminLogin() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
@@ -61,36 +64,47 @@ export default function AdminLogin() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
-            <div className="max-w-md w-full bg-gray-800 rounded-lg shadow-xl overflow-hidden border border-gray-700">
-                <div className="px-8 py-6">
-                    <div className="text-center mb-6">
-                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-900/30 mb-4">
-                            <Lock className="w-6 h-6 text-red-500" />
+        <div className="min-h-screen bg-[linear-gradient(180deg,#fff7f5_0%,#fffaf8_46%,#f9fbff_100%)] flex items-center justify-center px-4 py-8">
+            <div className="max-w-md w-full bg-white rounded-[28px] shadow-[0_26px_60px_rgba(227,30,36,0.08)] overflow-hidden border border-red-100">
+                <div className="px-8 py-8">
+                    <div className="mb-6">
+                        <Link href="/" className="mb-6 inline-flex w-fit items-center">
+                            <Image
+                                src="/logo 1.png"
+                                alt="Sindoor Saubhagya"
+                                width={150}
+                                height={50}
+                                className="h-auto w-auto object-contain"
+                                priority
+                            />
+                        </Link>
+                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-red-50 mb-4 text-red-600 shadow-[0_16px_30px_rgba(227,30,36,0.10)]">
+                            <ShieldCheck className="w-6 h-6" />
                         </div>
-                        <h2 className="text-2xl font-bold text-white">Admin Portal</h2>
-                        <p className="text-gray-400 mt-1">Sign in to manage the platform</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-red-500">Admin portal</p>
+                        <h2 className="text-3xl font-bold text-slate-900 mt-3">Sign in to dashboard</h2>
+                        <p className="text-slate-500 mt-2 text-sm leading-7">Use your administrator credentials to manage approvals and users.</p>
                     </div>
 
-                    <form onSubmit={handleLogin} className="space-y-4">
+                    <form onSubmit={handleLogin} className="space-y-5">
                         {error && (
-                            <div className="bg-red-900/20 border border-red-800 text-red-200 px-4 py-3 rounded flex items-start gap-2 text-sm">
+                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-start gap-2 text-sm">
                                 <AlertCircle className="w-5 h-5 shrink-0" />
                                 <span>{error}</span>
                             </div>
                         )}
 
                         <div>
-                            <label className="block text-gray-300 text-sm font-medium mb-1">Email Address</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2">Email Address</label>
                             <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Mail className="h-5 w-5 text-gray-500" />
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <Mail className="h-5 w-5 text-slate-400" />
                                 </div>
                                 <input
                                     type="email"
                                     required
-                                    className="block w-full pl-10 pr-3 py-2 border border-gray-600 rounded-md leading-5 bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:bg-gray-600 focus:border-red-500 focus:ring-1 focus:ring-red-500 sm:text-sm transition duration-150 ease-in-out"
-                                    placeholder="admin@sindoor.com"
+                                    className="block h-14 w-full pl-12 pr-4 rounded-2xl border border-slate-200 bg-[#fdfcfc] text-base text-slate-900 placeholder-slate-400 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
+                                    placeholder="admin@example.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                 />
@@ -98,33 +112,41 @@ export default function AdminLogin() {
                         </div>
 
                         <div>
-                            <label className="block text-gray-300 text-sm font-medium mb-1">Password</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2">Password</label>
                             <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Lock className="h-5 w-5 text-gray-500" />
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <Lock className="h-5 w-5 text-slate-400" />
                                 </div>
                                 <input
-                                    type="password"
+                                    type={showPassword ? 'text' : 'password'}
                                     required
-                                    className="block w-full pl-10 pr-3 py-2 border border-gray-600 rounded-md leading-5 bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:bg-gray-600 focus:border-red-500 focus:ring-1 focus:ring-red-500 sm:text-sm transition duration-150 ease-in-out"
+                                    className="block h-14 w-full pl-12 pr-14 rounded-2xl border border-slate-200 bg-[#fdfcfc] text-base text-slate-900 placeholder-slate-400 outline-none transition focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-50"
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword((current) => !current)}
+                                    className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 transition hover:text-red-500"
+                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                >
+                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                </button>
                             </div>
                         </div>
 
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+                            className="w-full flex justify-center items-center h-14 px-4 border border-transparent text-base font-semibold rounded-2xl text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_20px_36px_rgba(227,30,36,0.24)]"
                         >
                             {loading ? 'Authenticating...' : 'Access Dashboard'}
                         </button>
                     </form>
                 </div>
-                <div className="bg-gray-700/50 px-8 py-4 border-t border-gray-700">
-                    <p className="text-xs text-center text-gray-400">
+                <div className="bg-[#fff8f7] px-8 py-4 border-t border-red-100">
+                    <p className="text-xs text-center text-slate-500">
                         Authorized personnel only. All activities are monitored.
                     </p>
                 </div>

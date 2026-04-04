@@ -15,8 +15,14 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const ADMIN_EMAIL = 'admin@sindoor.com';
-const ADMIN_PASSWORD = 'secure_admin_password_123'; // Change this!
+const ADMIN_EMAIL = process.argv[2] || process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.argv[3] || process.env.ADMIN_PASSWORD;
+
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+    console.error('Usage: node scripts/seed-admin.js <admin-email> <admin-password>');
+    console.error('Or set ADMIN_EMAIL and ADMIN_PASSWORD in your environment.');
+    process.exit(1);
+}
 
 async function createSupremeAdmin() {
     console.log(`Creating Supreme Admin: ${ADMIN_EMAIL}`);
@@ -52,6 +58,7 @@ async function createSupremeAdmin() {
     INSERT INTO public.admin_users (user_id, email, role, is_active)
     VALUES ('${userId}', '${ADMIN_EMAIL}', 'super_admin', true);
   `);
+    console.log(`Example: node scripts/seed-admin.js admin@example.com YourSecurePassword123!`);
     console.log('-----------------');
 }
 

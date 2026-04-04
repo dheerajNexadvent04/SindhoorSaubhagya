@@ -5,6 +5,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
 interface UserProfile {
+    id?: string | null;
     first_name: string | null;
     last_name: string | null;
     photo_url: string | null;
@@ -13,6 +14,36 @@ interface UserProfile {
     gender: string | null;
     status: string | null;
 }
+
+const PROFILE_CACHE_KEY = 'sindoor_auth_profile';
+
+const readCachedProfile = (): UserProfile | null => {
+    if (typeof window === 'undefined') return null;
+
+    try {
+        const rawProfile = window.localStorage.getItem(PROFILE_CACHE_KEY);
+        if (!rawProfile) return null;
+        return JSON.parse(rawProfile) as UserProfile;
+    } catch (error) {
+        console.error('AuthProvider: failed to read cached profile', error);
+        return null;
+    }
+};
+
+const writeCachedProfile = (profile: UserProfile | null) => {
+    if (typeof window === 'undefined') return;
+
+    try {
+        if (!profile) {
+            window.localStorage.removeItem(PROFILE_CACHE_KEY);
+            return;
+        }
+
+        window.localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));
+    } catch (error) {
+        console.error('AuthProvider: failed to write cached profile', error);
+    }
+};
 
 interface AuthContextType {
     session: Session | null;
@@ -35,7 +66,7 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [session, setSession] = useState<Session | null>(null);
     const [user, setUser] = useState<User | null>(null);
-    const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [profile, setProfile] = useState<UserProfile | null>(() => readCachedProfile());
     const [loading, setLoading] = useState(true);
 
     const applySession = async (nextSession: Session | null) => {
@@ -43,9 +74,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(nextSession?.user ?? null);
 
         if (nextSession?.user) {
+            const cachedProfile = readCachedProfile();
+            if (cachedProfile && cachedProfile.id === nextSession.user.id) {
+                setProfile(cachedProfile);
+            }
             await fetchProfile(nextSession.user.id);
         } else {
             setProfile(null);
+            writeCachedProfile(null);
         }
     };
 
@@ -85,19 +121,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('first_name, last_name, photo_url, photos, is_premium, gender, status')
+                .select('id, first_name, last_name, photo_url, photos, is_premium, gender, status')
                 .eq('id', userId)
                 .maybeSingle();
 
             if (data) {
                 setProfile(data);
+                writeCachedProfile(data);
             } else {
                 setProfile(null);
+                writeCachedProfile(null);
                 if (error) console.log("AuthProvider: Profile fetch error (likely no profile):", error.message);
             }
         } catch (err) {
             console.error("Error in fetchProfile:", err);
-            setProfile(null);
         }
     };
 
@@ -157,6 +194,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setProfile(null);
         setLoading(false);
+        writeCachedProfile(null);
         await supabase.auth.signOut();
     };
 
