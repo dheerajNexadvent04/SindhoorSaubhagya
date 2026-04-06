@@ -16,7 +16,13 @@ export default function AdminDashboard() {
     const [refreshing, setRefreshing] = useState(false);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    
+    const [ownerAlertEnabled, setOwnerAlertEnabled] = useState(true);
+    const [ownerAlertLoading, setOwnerAlertLoading] = useState(true);
+    const [ownerAlertSaving, setOwnerAlertSaving] = useState(false);
+    const [ownerAlertError, setOwnerAlertError] = useState<string | null>(null);
+    const [ownerAlertNotice, setOwnerAlertNotice] = useState<string | null>(null);
+    const [ownerAlertUpdatedAt, setOwnerAlertUpdatedAt] = useState<string | null>(null);
+
     const [supabase] = useState(() => createClient());
 
     const fetchStats = async (mode: 'initial' | 'refresh' = 'initial') => {
@@ -64,6 +70,61 @@ export default function AdminDashboard() {
         }
     };
 
+    const fetchOwnerAlertSetting = async () => {
+        setOwnerAlertLoading(true);
+        setOwnerAlertError(null);
+        try {
+            const response = await fetch('/api/admin/settings/owner-alert', {
+                method: 'GET',
+                cache: 'no-store',
+            });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Failed to load owner alert setting');
+            }
+
+            const enabled = Boolean(result?.settings?.ownerProfileAlertEnabled);
+            setOwnerAlertEnabled(enabled);
+            setOwnerAlertUpdatedAt(result?.settings?.updatedAt || null);
+        } catch (error) {
+            console.error('Error loading owner alert setting:', error);
+            setOwnerAlertError(error instanceof Error ? error.message : 'Failed to load owner alert setting.');
+        } finally {
+            setOwnerAlertLoading(false);
+        }
+    };
+
+    const toggleOwnerAlertSetting = async () => {
+        const nextEnabledState = !ownerAlertEnabled;
+        setOwnerAlertSaving(true);
+        setOwnerAlertError(null);
+        setOwnerAlertNotice(null);
+        try {
+            const response = await fetch('/api/admin/settings/owner-alert', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ enabled: nextEnabledState }),
+            });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Failed to update owner alert setting');
+            }
+
+            setOwnerAlertEnabled(Boolean(result?.settings?.ownerProfileAlertEnabled));
+            setOwnerAlertUpdatedAt(result?.settings?.updatedAt || null);
+            setOwnerAlertNotice(result.message || 'Owner alert setting updated.');
+        } catch (error) {
+            console.error('Error updating owner alert setting:', error);
+            setOwnerAlertError(error instanceof Error ? error.message : 'Failed to update owner alert setting.');
+        } finally {
+            setOwnerAlertSaving(false);
+        }
+    };
+
     useEffect(() => {
         const loadCurrentUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
@@ -80,10 +141,12 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         void fetchStats('initial');
+        void fetchOwnerAlertSetting();
 
         const handleVisibilityOrFocus = () => {
             if (document.visibilityState !== 'visible') return;
             void fetchStats('refresh');
+            void fetchOwnerAlertSetting();
         };
 
         window.addEventListener('focus', handleVisibilityOrFocus);
@@ -182,6 +245,43 @@ export default function AdminDashboard() {
                     </Link>
                     {/* Add more actions */}
                 </div>
+            </div>
+
+            <div className="mt-8 rounded-[28px] border border-indigo-100 bg-white p-6 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+                <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-500">Automation Control</p>
+                        <h3 className="mt-2 text-xl font-bold text-slate-900">Owner New Profile Email Alert</h3>
+                        <p className="mt-2 max-w-2xl text-sm text-slate-600">
+                            Sends an email to <span className="font-semibold text-slate-800">sindoorsaubhagya@gmail.com</span> whenever a new profile is created.
+                        </p>
+                        <p className="mt-2 text-sm text-slate-700">
+                            Status: <span className={ownerAlertEnabled ? 'font-semibold text-green-600' : 'font-semibold text-slate-500'}>{ownerAlertEnabled ? 'Enabled' : 'Disabled'}</span>
+                        </p>
+                        {ownerAlertUpdatedAt && (
+                            <p className="mt-1 text-xs text-slate-500">
+                                Last updated: {new Date(ownerAlertUpdatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                            </p>
+                        )}
+                    </div>
+                    <button
+                        onClick={() => void toggleOwnerAlertSetting()}
+                        disabled={ownerAlertLoading || ownerAlertSaving}
+                        className={`rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(15,23,42,0.18)] transition ${ownerAlertEnabled ? 'bg-slate-700 hover:bg-slate-800' : 'bg-indigo-600 hover:bg-indigo-700'} disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                        {ownerAlertLoading ? 'Loading...' : ownerAlertSaving ? 'Saving...' : ownerAlertEnabled ? 'Disable Alerts' : 'Enable Alerts'}
+                    </button>
+                </div>
+                {ownerAlertError && (
+                    <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {ownerAlertError}
+                    </div>
+                )}
+                {ownerAlertNotice && !ownerAlertError && (
+                    <div className="mt-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                        {ownerAlertNotice}
+                    </div>
+                )}
             </div>
 
             {/* Debug Info */}

@@ -4,7 +4,6 @@ import Hero from "@/components/Hero/Hero";
 import HowItWorks from "@/components/HowItWorks/HowItWorks";
 import WhyChooseUs from "@/components/WhyChooseUs/WhyChooseUs";
 import Testimonials from "@/components/Testimonials/Testimonials";
-import Pricing from "@/components/Pricing/Pricing";
 import StatsOfUs from "@/components/StatsOfUs/StatsOfUs";
 import ContactUs from "@/components/ContactUs/ContactUs";
 import MatrimonyQueries from "@/components/MatrimonyQueries/MatrimonyQueries";
@@ -21,7 +20,6 @@ export default function Home() {
       <ScrollReveal delay={40}><HowItWorks /></ScrollReveal>
       <ScrollReveal delay={80}><WhyChooseUs /></ScrollReveal>
       <ScrollReveal delay={120}><Testimonials /></ScrollReveal>
-      <ScrollReveal delay={140}><Pricing /></ScrollReveal>
       <ScrollReveal delay={170}><StatsOfUs /></ScrollReveal>
       <ScrollReveal delay={190}><ContactUs /></ScrollReveal>
       <ScrollReveal delay={220}><MatrimonyQueries /></ScrollReveal>

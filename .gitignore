@@ -20,6 +20,9 @@
 # production
 /build
 
+# runtime config cache
+/.runtime/
+
 # misc
 .DS_Store
 *.pem

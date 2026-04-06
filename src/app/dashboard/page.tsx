@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Heart, Users, User, Edit, X } from 'lucide-react';
+import { Heart, Eye, User, Edit, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import styles from './dashboard.module.css';
 import { useAuth } from '@/context/AuthProvider';
@@ -27,13 +27,53 @@ interface InterestedProfile {
     state: string | null;
 }
 
+interface ViewedProfile {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    gender: string | null;
+    date_of_birth: string | null;
+    photo_url: string | null;
+    photos: string[] | null;
+    viewed_at: string;
+}
+
+interface ViewedProfileApiRow {
+    viewed_at: string;
+    viewed_profile: Omit<ViewedProfile, 'viewed_at'> | null;
+}
+
+const getAge = (dateOfBirth: string | null) => {
+    if (!dateOfBirth) return null;
+    const dob = new Date(dateOfBirth);
+    if (Number.isNaN(dob.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age -= 1;
+    return age;
+};
+
+const formatViewedTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return 'Recently viewed';
+    return date.toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
+
 export default function Dashboard() {
-    const { user, profile: authProfile, loading, refreshSession } = useAuth();
+    const { user, profile: authProfile, loading, refreshSession, signOut } = useAuth();
     const router = useRouter();
     const [profile, setProfile] = React.useState<DashboardProfile | null>(null);
-    const [stats, setStats] = React.useState({ views: 0, acceptedInterests: 0, receivedRequests: 0 });
+    const [stats, setStats] = React.useState({ views: 0, interestsReceived: 0, viewedProfiles: 0 });
     const [interestedProfiles, setInterestedProfiles] = React.useState<InterestedProfile[]>([]);
-    const { signOut } = useAuth(); // Correctly extracting here
+    const [viewedProfiles, setViewedProfiles] = React.useState<ViewedProfile[]>([]);
+    const [showViewedProfiles, setShowViewedProfiles] = React.useState(false);
     const [authChecked, setAuthChecked] = React.useState(false);
 
     React.useEffect(() => {
@@ -45,72 +85,108 @@ export default function Dashboard() {
         }
     }, [authProfile]);
 
-    React.useEffect(() => {
-        async function fetchProfileData(userId: string) {
-            try {
-                const { data: profileData, error: profileErr } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', userId)
-                    .single();
-
-                if (profileErr) console.error("Dashboard profile error:", profileErr);
-                if (profileData) setProfile(profileData);
-
-                let viewsCount = 0, interestsCount = 0;
-
-                try {
-                    const viewsReq = await supabase.from('profile_views').select('id', { count: 'exact', head: true }).eq('viewed_profile_id', userId);
-                    viewsCount = viewsReq.count || 0;
-                } catch (e) { console.error("Views fetch error", e); }
-
-                try {
-                    const interestsReq = await supabase.from('shortlist').select('id', { count: 'exact', head: true }).eq('shortlisted_profile_id', userId);
-                    interestsCount = interestsReq.count || 0;
-                } catch (e) { console.error("Interests fetch error", e); }
-
-                setStats({
-                    views: viewsCount,
-                    acceptedInterests: interestsCount,
-                    receivedRequests: interestsCount
-                });
-
-                try {
-                    const { data: shortlistRows, error: shortlistErr } = await supabase
-                        .from('shortlist')
-                        .select('user_id')
-                        .eq('shortlisted_profile_id', userId)
-                        .order('created_at', { ascending: false });
-
-                    if (shortlistErr) throw shortlistErr;
-
-                    const interestedIds = Array.from(new Set((shortlistRows || []).map((row) => row.user_id).filter(Boolean)));
-
-                    if (interestedIds.length > 0) {
-                        const { data: interestedRows, error: interestedErr } = await supabase
-                            .from('profiles')
-                            .select('id, first_name, last_name, photo_url, city, state')
-                            .in('id', interestedIds)
-                            .limit(6);
-
-                        if (interestedErr) throw interestedErr;
-                        setInterestedProfiles((interestedRows as InterestedProfile[]) || []);
-                    } else {
-                        setInterestedProfiles([]);
-                    }
-                } catch (e) {
-                    console.error("Interested profiles fetch error", e);
-                    setInterestedProfiles([]);
-                }
-            } catch (error) {
-                console.error('Error fetching dashboard data:', error);
+    const loadViewedProfilesByMe = React.useCallback(async (): Promise<ViewedProfile[]> => {
+        try {
+            const response = await fetch('/api/views?type=by_me', { cache: 'no-store' });
+            if (!response.ok) {
+                throw new Error('Unable to load viewed profiles');
             }
-        }
 
+            const payload = await response.json();
+            const rows = ((payload?.data || []) as ViewedProfileApiRow[]);
+
+            const deduped = new Map<string, ViewedProfile>();
+            rows.forEach((row) => {
+                const viewedProfile = row.viewed_profile;
+                if (!viewedProfile?.id || deduped.has(viewedProfile.id)) return;
+
+                deduped.set(viewedProfile.id, {
+                    ...viewedProfile,
+                    viewed_at: row.viewed_at,
+                });
+            });
+
+            return Array.from(deduped.values());
+        } catch (error) {
+            console.error('Viewed profiles fetch error:', error);
+            return [];
+        }
+    }, []);
+
+    const fetchDashboardData = React.useCallback(async (userId: string) => {
+        try {
+            const { data: profileData, error: profileErr } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single();
+
+            if (profileErr) {
+                console.error("Dashboard profile error:", profileErr);
+            }
+
+            if (profileData) {
+                setProfile(profileData);
+            }
+
+            const [
+                viewsReq,
+                interestsReq,
+                shortlistReq,
+                viewedProfilesByMe,
+            ] = await Promise.all([
+                supabase.from('profile_views').select('id', { count: 'exact', head: true }).eq('viewed_profile_id', userId),
+                supabase.from('shortlist').select('id', { count: 'exact', head: true }).eq('shortlisted_profile_id', userId),
+                supabase.from('shortlist').select('user_id').eq('shortlisted_profile_id', userId).order('created_at', { ascending: false }),
+                loadViewedProfilesByMe(),
+            ]);
+
+            const viewsCount = viewsReq.count || 0;
+            const interestsCount = interestsReq.count || 0;
+
+            setViewedProfiles(viewedProfilesByMe);
+            setStats({
+                views: viewsCount,
+                interestsReceived: interestsCount,
+                viewedProfiles: viewedProfilesByMe.length,
+            });
+
+            if (shortlistReq.error) {
+                throw shortlistReq.error;
+            }
+
+            const interestedIds = Array.from(
+                new Set((shortlistReq.data || []).map((row) => row.user_id).filter(Boolean))
+            ) as string[];
+
+            if (interestedIds.length > 0) {
+                const { data: interestedRows, error: interestedErr } = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name, photo_url, city, state')
+                    .in('id', interestedIds)
+                    .limit(6);
+
+                if (interestedErr) throw interestedErr;
+                setInterestedProfiles((interestedRows as InterestedProfile[]) || []);
+            } else {
+                setInterestedProfiles([]);
+            }
+        } catch (error) {
+            console.error('Error fetching dashboard data:', error);
+            setInterestedProfiles([]);
+            setViewedProfiles([]);
+            setStats((currentStats) => ({
+                ...currentStats,
+                viewedProfiles: 0,
+            }));
+        }
+    }, [loadViewedProfilesByMe]);
+
+    React.useEffect(() => {
         async function bootstrapDashboard() {
             if (user?.id) {
                 setAuthChecked(true);
-                await fetchProfileData(user.id);
+                await fetchDashboardData(user.id);
                 return;
             }
 
@@ -120,7 +196,7 @@ export default function Dashboard() {
                 if (session?.user?.id) {
                     await refreshSession();
                     setAuthChecked(true);
-                    await fetchProfileData(session.user.id);
+                    await fetchDashboardData(session.user.id);
                     return;
                 }
 
@@ -130,7 +206,7 @@ export default function Dashboard() {
         }
 
         void bootstrapDashboard();
-    }, [user?.id, loading, refreshSession, router]);
+    }, [user?.id, loading, refreshSession, router, fetchDashboardData]);
 
     React.useEffect(() => {
         const refreshDashboard = async () => {
@@ -139,28 +215,7 @@ export default function Dashboard() {
             const userId = user?.id || (await supabase.auth.getSession()).data.session?.user?.id;
             if (!userId) return;
 
-            try {
-                const { data: profileData } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', userId)
-                    .single();
-
-                if (profileData) setProfile(profileData);
-
-                const [{ count: viewsCount }, { count: interestsCount }] = await Promise.all([
-                    supabase.from('profile_views').select('id', { count: 'exact', head: true }).eq('viewed_profile_id', userId),
-                    supabase.from('shortlist').select('id', { count: 'exact', head: true }).eq('shortlisted_profile_id', userId),
-                ]);
-
-                setStats({
-                    views: viewsCount || 0,
-                    acceptedInterests: interestsCount || 0,
-                    receivedRequests: interestsCount || 0,
-                });
-            } catch (error) {
-                console.error('Dashboard refresh error:', error);
-            }
+            await fetchDashboardData(userId);
         };
 
         window.addEventListener('focus', refreshDashboard);
@@ -170,7 +225,7 @@ export default function Dashboard() {
             window.removeEventListener('focus', refreshDashboard);
             document.removeEventListener('visibilitychange', refreshDashboard);
         };
-    }, [user?.id]);
+    }, [user?.id, fetchDashboardData]);
 
     const resolvedProfile = profile || authProfile;
     const isApprovedProfile = profile?.status === 'approved';
@@ -278,20 +333,69 @@ export default function Dashboard() {
                     </div>
                     <div className={styles.statContent}>
                         <h4>Interests Received</h4>
-                        <p>{stats.acceptedInterests}</p>
+                        <p>{stats.interestsReceived}</p>
                     </div>
                 </div>
 
-                <div className={styles.statCard}>
+                <button
+                    type="button"
+                    className={`${styles.statCard} ${styles.clickableStatCard} ${showViewedProfiles ? styles.statCardActive : ''}`}
+                    onClick={() => setShowViewedProfiles((current) => !current)}
+                >
                     <div className={styles.statIconWrapper} style={{ background: '#E8F5E9' }}>
-                        <Users size={24} color="#4CAF50" />
+                        <Eye size={24} color="#4CAF50" />
                     </div>
                     <div className={styles.statContent}>
-                        <h4>People Interested</h4>
-                        <p>{stats.receivedRequests}</p>
+                        <h4>Viewed Profiles</h4>
+                        <p>{stats.viewedProfiles}</p>
                     </div>
-                </div>
+                </button>
             </div>
+
+            {showViewedProfiles && (
+                <>
+                    <h3 className={styles.sectionTitle}>Viewed Profiles</h3>
+                    <div className={styles.viewedProfilesSection}>
+                        {viewedProfiles.length > 0 ? (
+                            viewedProfiles.map((viewedProfile) => {
+                                const profileName = `${viewedProfile.first_name || ''} ${viewedProfile.last_name || ''}`.trim() || 'Member';
+                                const age = getAge(viewedProfile.date_of_birth);
+
+                                return (
+                                    <div key={`${viewedProfile.id}-${viewedProfile.viewed_at}`} className={styles.interestedRow}>
+                                        <div className={styles.interestedPerson}>
+                                            <div className={styles.interestedAvatar}>
+                                                {viewedProfile.photo_url || viewedProfile.photos?.[0] ? (
+                                                    <Image
+                                                        src={viewedProfile.photo_url || viewedProfile.photos?.[0] || '/image 1.png'}
+                                                        alt={profileName}
+                                                        fill
+                                                        className={styles.userImage}
+                                                        unoptimized
+                                                    />
+                                                ) : (
+                                                    <User size={18} color="#999" />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <strong>{profileName}</strong>
+                                                <span className={styles.interestedMeta}>
+                                                    {age ? `${age} years` : 'Age not shared'} • Viewed on {formatViewedTime(viewedProfile.viewed_at)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <Link href={`/dashboard/profile/${viewedProfile.id}`} className={styles.viewAgainBtn}>
+                                            View Again
+                                        </Link>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div className={styles.emptyInterested}>You have not viewed any profiles yet.</div>
+                        )}
+                    </div>
+                </>
+            )}
 
             {/* Photo Gallery */}
             <h3 className={styles.sectionTitle}>My Photos</h3>
@@ -323,8 +427,8 @@ export default function Dashboard() {
                     </div>
                 )}
             </div>
-            {/* People Interested (Blurred) */}
-            <h3 className={styles.sectionTitle}>People Interested</h3>
+            {/* Interests Received (Blurred) */}
+            <h3 className={styles.sectionTitle}>Interests Received</h3>
             <div className={`${styles.interestedSection} ${!isApprovedProfile ? styles.interestedSectionLocked : ''}`}>
                 {!isApprovedProfile ? (
                     <div className={styles.premiumOverlay}>

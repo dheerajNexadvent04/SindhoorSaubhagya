@@ -81,6 +81,16 @@ const writeCachedUser = (user: CachedUser | null) => {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const isInvalidRefreshTokenError = (error: unknown) => {
+    const message =
+        error instanceof Error
+            ? error.message
+            : typeof error === 'string'
+                ? error
+                : '';
+    return /invalid refresh token|refresh token not found/i.test(message);
+};
+
 interface AuthContextType {
     session: Session | null;
     user: User | null;
@@ -101,11 +111,8 @@ const AuthContext = createContext<AuthContextType>({
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [session, setSession] = useState<Session | null>(null);
-    const [user, setUser] = useState<User | null>(() => {
-        const cachedUser = readCachedUser();
-        return cachedUser ? ({ id: cachedUser.id, email: cachedUser.email } as User) : null;
-    });
-    const [profile, setProfile] = useState<UserProfile | null>(() => readCachedProfile());
+    const [user, setUser] = useState<User | null>(null);
+    const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
 
     const applySession = (nextSession: Session | null) => {
@@ -135,6 +142,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             applySession(localSession ?? null);
         } catch (error) {
             console.error("AuthProvider: syncAuthState error:", error);
+            if (isInvalidRefreshTokenError(error)) {
+                try {
+                    await supabase.auth.signOut({ scope: 'local' });
+                } catch (signOutError) {
+                    console.error("AuthProvider: failed to clear invalid session locally:", signOutError);
+                }
+            }
             applySession(null);
         }
     };
@@ -190,6 +204,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     useEffect(() => {
+        const cachedUser = readCachedUser();
+        const cachedProfile = readCachedProfile();
+
+        if (cachedUser) {
+            setUser({ id: cachedUser.id, email: cachedUser.email } as User);
+        }
+        if (cachedProfile && (!cachedUser || cachedProfile.id === cachedUser.id)) {
+            setProfile(cachedProfile);
+        }
+
         const getInitialSession = async () => {
             try {
                 await syncAuthState();

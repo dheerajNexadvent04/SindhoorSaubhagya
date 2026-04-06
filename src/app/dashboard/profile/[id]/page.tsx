@@ -3,9 +3,10 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Heart, MapPin, Briefcase, ArrowLeft } from 'lucide-react';
+import { Heart, ArrowLeft } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import styles from './profile-detail.module.css';
 
 type ProfileDetails = {
     id: string;
@@ -19,11 +20,12 @@ type ProfileDetails = {
     country: string | null;
     occupation: string | null;
     degree: string | null;
+    marital_status: string | null;
     religion_name: string | null;
     caste_name: string | null;
     photo_url: string | null;
     photos: string[] | null;
-  };
+};
 
 const getAge = (dateOfBirth: string | null) => {
     if (!dateOfBirth) return 'N/A';
@@ -51,7 +53,7 @@ export default function DashboardProfileDetailsPage() {
             try {
                 const { data, error } = await supabase
                     .from('profiles')
-                    .select('id, first_name, last_name, date_of_birth, height, about_me, city, state, country, occupation, degree, religion_name, caste_name, photo_url, photos')
+                    .select('id, first_name, last_name, date_of_birth, height, about_me, city, state, country, occupation, degree, marital_status, religion_name, caste_name, photo_url, photos')
                     .eq('id', profileId)
                     .single();
 
@@ -80,24 +82,26 @@ export default function DashboardProfileDetailsPage() {
         void loadProfile();
     }, [profileId]);
 
-    const handleShortlistToggle = async () => {
-        if (!profileId || busy) return;
+    const handleShowInterest = async () => {
+        if (!profileId || busy || shortlisted) return;
         setBusy(true);
         try {
-            const response = shortlisted
-                ? await fetch(`/api/shortlist/${profileId}`, { method: 'DELETE' })
-                : await fetch('/api/shortlist', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ profileId }),
-                });
+            const response = await fetch('/api/shortlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ profileId }),
+            });
 
             if (!response.ok) {
                 const json = await response.json().catch(() => null);
+                if (json?.error === 'Already shortlisted') {
+                    setShortlisted(true);
+                    return;
+                }
                 throw new Error(json?.error || 'Unable to update interest');
             }
 
-            setShortlisted((current) => !current);
+            setShortlisted(true);
         } catch (error) {
             console.error(error);
         } finally {
@@ -106,86 +110,77 @@ export default function DashboardProfileDetailsPage() {
     };
 
     if (loading) {
-        return <div style={{ padding: '24px', color: '#6b7280' }}>Loading profile...</div>;
+        return <div className={styles.infoState}>Loading profile...</div>;
     }
 
     if (!profile) {
-        return <div style={{ padding: '24px', color: '#6b7280' }}>Profile not found.</div>;
+        return <div className={styles.infoState}>Profile not found.</div>;
     }
 
+    const profileName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Member';
+    const profileAge = getAge(profile.date_of_birth);
+    const location = [profile.city, profile.state, profile.country].filter(Boolean).join(', ') || 'Location not shared';
+
     return (
-        <div style={{ display: 'grid', gap: '24px' }}>
-            <Link href="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#374151', textDecoration: 'none', fontWeight: 600 }}>
+        <div className={styles.page}>
+            <Link href="/profile" className={styles.backLink}>
                 <ArrowLeft size={18} />
-                Back to dashboard
+                Back to profiles
             </Link>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 340px) 1fr', gap: '24px', background: 'white', borderRadius: '24px', padding: '24px', boxShadow: '0 18px 40px rgba(15, 23, 42, 0.06)' }}>
-                <div style={{ position: 'relative', minHeight: '440px', borderRadius: '22px', overflow: 'hidden', background: '#f3f4f6' }}>
+            <section className={styles.profileShell}>
+                <div className={styles.photoFrame}>
                     <Image
                         src={profile.photo_url || profile.photos?.[0] || '/image 1.png'}
-                        alt={profile.first_name || 'Profile'}
+                        alt={profileName}
                         fill
-                        style={{ objectFit: 'cover' }}
+                        className={styles.profileImage}
                         unoptimized
                     />
                 </div>
 
-                <div style={{ display: 'grid', gap: '18px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', alignItems: 'start' }}>
-                        <div>
-                            <h1 style={{ margin: 0, fontSize: '2rem', color: '#111827' }}>
-                                {`${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Member'}
-                            </h1>
-                            <p style={{ margin: '8px 0 0', color: '#6b7280', fontSize: '1rem' }}>
-                                {getAge(profile.date_of_birth)} years, {profile.height ? `${profile.height} cm` : 'Height open'}
-                            </p>
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={handleShortlistToggle}
-                            disabled={busy}
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '10px',
-                                border: 'none',
-                                borderRadius: '999px',
-                                padding: '12px 18px',
-                                background: shortlisted ? '#e31e24' : '#fff0f1',
-                                color: shortlisted ? 'white' : '#e31e24',
-                                fontWeight: 700,
-                                cursor: busy ? 'wait' : 'pointer',
-                            }}
-                        >
-                            <Heart size={18} fill={shortlisted ? 'currentColor' : 'none'} />
-                            {shortlisted ? 'Remove interest' : 'Show interest'}
-                        </button>
+                <div className={styles.content}>
+                    <div className={styles.headerRow}>
+                        <h1 className={styles.name}>{profileName.toUpperCase()}</h1>
+                        <p className={styles.ageMeta}>
+                            Age <span>{profileAge}</span>
+                        </p>
                     </div>
 
-                    <div style={{ display: 'grid', gap: '12px', color: '#374151' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-                            <Briefcase size={18} color="#e31e24" />
-                            <span>{profile.occupation || profile.degree || 'Profession not shared'}</span>
-                        </div>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-                            <MapPin size={18} color="#e31e24" />
-                            <span>{[profile.city, profile.state, profile.country].filter(Boolean).join(', ') || 'Location not shared'}</span>
-                        </div>
-                        <div>
-                            <strong>Community:</strong> {[profile.religion_name, profile.caste_name].filter(Boolean).join(', ') || 'Open'}
-                        </div>
+                    <div className={styles.facts}>
+                        <p><span>Age:</span> {profileAge} years</p>
+                        <p><span>Religion / Community:</span> {profile.religion_name || 'Open'}</p>
+                        <p><span>Caste:</span> {profile.caste_name || 'Open'}</p>
+                        <p><span>Location:</span> {location}</p>
+                        <p><span>Height:</span> {profile.height ? `${profile.height} cm` : 'Not shared'}</p>
+                        <p><span>Marital Status:</span> {profile.marital_status || 'Not shared'}</p>
+                        <p><span>Job:</span> {profile.occupation || 'Not shared'}</p>
+                        <p><span>Education:</span> {profile.degree || 'Not shared'}</p>
                     </div>
 
-                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '18px' }}>
-                        <h2 style={{ margin: '0 0 10px', color: '#111827', fontSize: '1.15rem' }}>About</h2>
-                        <p style={{ margin: 0, color: '#6b7280', lineHeight: 1.7 }}>
+                    <div className={styles.about}>
+                        <h2>About me</h2>
+                        <p>
                             {profile.about_me || 'This member has not shared an introduction yet.'}
                         </p>
                     </div>
+
+                    <div className={styles.actions}>
+                        <button
+                            type="button"
+                            onClick={handleShowInterest}
+                            disabled={busy || shortlisted}
+                            className={`${styles.actionButton} ${styles.primaryAction}`}
+                        >
+                            <Heart size={16} fill={shortlisted ? 'currentColor' : 'none'} />
+                            {busy ? 'Updating...' : shortlisted ? 'Interested' : 'Show Interest'}
+                        </button>
+                        <Link href="/profile" className={`${styles.actionButton} ${styles.secondaryAction}`}>
+                            View More Profiles
+                        </Link>
+                    </div>
                 </div>
-            </div>
+            </section>
         </div>
     );
 }

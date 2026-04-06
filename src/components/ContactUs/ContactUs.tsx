@@ -3,6 +3,7 @@
 import React from 'react';
 import styles from './ContactUs.module.css';
 import Image from 'next/image';
+import { sendToGoogleSheet } from '@/lib/googleSheet';
 
 const ContactUs = () => {
     // Testimonials data
@@ -53,22 +54,17 @@ const ContactUs = () => {
         e.preventDefault();
         setIsSubmitting(true);
 
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz0GynOM8OnThBLPXIhBmcwul8ghzX-toB4nQW5BJofPvCNaZIctto2hgxa3o7YezvJ/exec';
-
         try {
-            // Using 'no-cors' mode with 'text/plain' content type to avoid CORS preflight issues with Google Apps Script
-            // The script parses e.postData.contents, so sending JSON string as text/plain works.
-            await fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'text/plain',
-                },
-                body: JSON.stringify(enquiry),
+            await sendToGoogleSheet({
+                formType: 'contact-us-enquiry',
+                submittedAt: new Date().toISOString(),
+                pagePath: '/contact-us',
+                name: enquiry.name,
+                phone: enquiry.phone,
+                email: enquiry.email,
+                message: enquiry.message,
             });
 
-            // Since mode is 'no-cors', we won't get a readable response status,
-            // but if it didn't throw network error, we assume success.
             setIsSubmitted(true);
             setEnquiry({ name: '', phone: '', email: '', message: '' });
         } catch (error) {
@@ -96,7 +92,7 @@ const ContactUs = () => {
                     {marqueeData.map((item, index) => (
                         <div key={index} className={styles.testimonialCard}>
                             <div className={styles.stars}>★★★★★</div>
-                            <p className={styles.testimonialText}>"{item.text}"</p>
+                            <p className={styles.testimonialText}>&quot;{item.text}&quot;</p>
                             <div className={styles.authorSection}>
                                 <Image
                                     src={item.image}
@@ -161,7 +157,7 @@ const ContactUs = () => {
                             <p style={{ fontSize: '1.1rem', color: '#555' }}>We will reach you in 24 to 48 hrs.</p>
                         </div>
                     ) : (
-                        <form onSubmit={handleEnquirySubmit}>
+                        <form onSubmit={handleEnquirySubmit} data-sheet-ignore="true" data-form-type="contact-us-enquiry">
                             <div className={styles.formGroup}>
                                 <input
                                     type="text"

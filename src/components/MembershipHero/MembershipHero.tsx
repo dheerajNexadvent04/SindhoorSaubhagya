@@ -27,8 +27,8 @@ const MembershipHero = () => {
                     <div className={styles.formContainer}>
                         <div className={`${styles.formGroup} ${styles.borderRight}`}>
                             <label className={styles.label}>Mother Tongue</label>
-                            <select className={styles.select}>
-                                <option value="" disabled selected>Select</option>
+                            <select className={styles.select} defaultValue="">
+                                <option value="" disabled>Select</option>
                                 <option value="hindi">Hindi</option>
                                 <option value="english">English</option>
                                 <option value="punjabi">Punjabi</option>

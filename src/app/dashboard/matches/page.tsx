@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { BadgeCheck, Briefcase, Heart, MapPin, Search, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { BadgeCheck, Search, SlidersHorizontal, Sparkles, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthProvider';
 import styles from './matches.module.css';
@@ -78,6 +78,14 @@ const incomeOptions = [
 const ageOptions = Array.from({ length: 23 }, (_, index) => `${index + 21}`);
 const heightOptions = Array.from({ length: 41 }, (_, index) => `${145 + index}`);
 
+const normalizeGenderValue = (value: string | null | undefined) => {
+    const normalized = (value || '').trim().toLowerCase();
+    if (!normalized) return '';
+    if (normalized === 'female' || normalized === 'bride' || normalized === 'woman' || normalized === 'f') return 'female';
+    if (normalized === 'male' || normalized === 'groom' || normalized === 'man' || normalized === 'm') return 'male';
+    return normalized;
+};
+
 const getDefaultPreferences = (gender?: string | null): PreferencesForm => ({
     preferred_gender: gender === 'male' ? 'female' : gender === 'female' ? 'male' : '',
     age_min: '23',
@@ -117,10 +125,12 @@ const getAge = (dateOfBirth: string | null) => {
     return age;
 };
 
-const formatIncome = (income: number | null) => {
-    if (!income) return 'Income not shared';
-    if (income >= 100000) return `Rs. ${(income / 100000).toFixed(1)} LPA`;
-    return `Rs. ${income.toLocaleString('en-IN')}`;
+const formatHeight = (heightInCm: number | null) => {
+    if (!heightInCm) return 'Not shared';
+    const totalInches = Math.round(heightInCm / 2.54);
+    const feet = Math.floor(totalInches / 12);
+    const inches = totalInches % 12;
+    return `${feet}'${inches}"`;
 };
 
 const scoreProfile = (candidate: SuggestedProfile, preferences: PreferencesForm) => {
@@ -132,11 +142,15 @@ const scoreProfile = (candidate: SuggestedProfile, preferences: PreferencesForm)
     const heightMax = preferences.height_max ? parseInt(preferences.height_max, 10) : null;
     const incomeMin = preferences.annual_income_min ? parseInt(preferences.annual_income_min, 10) : null;
     const occupationKeyword = preferences.occupation_keyword.trim().toLowerCase();
+    const preferredGender = normalizeGenderValue(preferences.preferred_gender);
+    const candidateGender = normalizeGenderValue(candidate.gender);
 
     if (ageMin !== null && candidateAge !== null) score += candidateAge >= ageMin ? 10 : -8;
     if (ageMax !== null && candidateAge !== null) score += candidateAge <= ageMax ? 10 : -8;
     if (heightMin !== null && candidate.height !== null) score += candidate.height >= heightMin ? 6 : -4;
     if (heightMax !== null && candidate.height !== null) score += candidate.height <= heightMax ? 6 : -4;
+    if (preferredGender && candidateGender === preferredGender) score += 16;
+    if (preferredGender && candidateGender && candidateGender !== preferredGender) score -= 18;
     if (preferences.marital_status && candidate.marital_status === preferences.marital_status) score += 8;
     if (preferences.religion_name && candidate.religion_name === preferences.religion_name) score += 12;
     if (preferences.caste_name && candidate.caste_name?.toLowerCase() === preferences.caste_name.toLowerCase()) score += 10;
@@ -163,11 +177,34 @@ export default function MatchesPage() {
     const [saving, setSaving] = React.useState(false);
     const [showPopup, setShowPopup] = React.useState(false);
     const [popupMessage, setPopupMessage] = React.useState('');
+    const [selectedMatch, setSelectedMatch] = React.useState<RankedProfile | null>(null);
+    const [interestBusy, setInterestBusy] = React.useState(false);
+    const [interestedIds, setInterestedIds] = React.useState<Record<string, boolean>>({});
     const [fetchingMatches, setFetchingMatches] = React.useState(false);
     const [isEditingPreferences, setIsEditingPreferences] = React.useState(false);
     const formRef = React.useRef<HTMLDivElement>(null);
     const contextLoadInFlightRef = React.useRef(false);
     const preferencesConfigured = hasConfiguredPreferences(profile?.partner_preferences);
+
+    const loadShortlistedProfiles = React.useCallback(async () => {
+        try {
+            const response = await fetch('/api/shortlist', { cache: 'no-store' });
+            if (!response.ok) return;
+
+            const payload = await response.json();
+            const ids = ((payload?.data || []) as { shortlisted_profile?: { id?: string } }[])
+                .map((entry) => entry.shortlisted_profile?.id)
+                .filter((id): id is string => Boolean(id));
+
+            const index: Record<string, boolean> = {};
+            ids.forEach((id) => {
+                index[id] = true;
+            });
+            setInterestedIds(index);
+        } catch (error) {
+            console.error('Failed to fetch shortlist status:', error);
+        }
+    }, []);
 
     const loadMatchesContext = React.useCallback(async (userId: string) => {
         if (contextLoadInFlightRef.current) return;
@@ -202,21 +239,24 @@ export default function MatchesPage() {
 
         setFetchingMatches(true);
         try {
-            let query = supabase
+            const query = supabase
                 .from('profiles')
                 .select('id, first_name, last_name, gender, date_of_birth, height, marital_status, religion_name, caste_name, mother_tongue, manglik, degree, employed_in, occupation, annual_income, city, state, country, photo_url, photos, about_me')
                 .eq('status', 'approved')
                 .neq('id', currentProfile.id)
-                .limit(30);
-
-            if (currentPreferences.preferred_gender) {
-                query = query.eq('gender', currentPreferences.preferred_gender);
-            }
+                .limit(80);
 
             const { data, error } = await query;
             if (error) throw error;
 
-            const ranked = (((data as SuggestedProfile[] | null) || []).map((candidate) => ({
+            const candidates = ((data as SuggestedProfile[] | null) || []);
+            const preferredGender = normalizeGenderValue(currentPreferences.preferred_gender);
+            const preferredGenderCandidates = preferredGender
+                ? candidates.filter((candidate) => normalizeGenderValue(candidate.gender) === preferredGender)
+                : candidates;
+            const rankedSource = preferredGenderCandidates.length > 0 ? preferredGenderCandidates : candidates;
+
+            const ranked = (rankedSource.map((candidate) => ({
                 ...candidate,
                 score: Math.max(1, Math.min(99, scoreProfile(candidate, currentPreferences))),
             }))).sort((a, b) => b.score - a.score).slice(0, 12);
@@ -255,6 +295,31 @@ export default function MatchesPage() {
             void fetchSuggestedMatches(profile, preferences);
         }
     }, [profile, preferences, fetchSuggestedMatches]);
+
+    React.useEffect(() => {
+        if (profile?.status === 'approved') {
+            void loadShortlistedProfiles();
+        }
+    }, [profile?.status, loadShortlistedProfiles]);
+
+    React.useEffect(() => {
+        if (!selectedMatch) return;
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setSelectedMatch(null);
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', onKeyDown);
+        };
+    }, [selectedMatch]);
 
     React.useEffect(() => {
         const handleFocus = async () => {
@@ -323,6 +388,40 @@ export default function MatchesPage() {
 
     const suggestionsLocked = !profile || !preferencesConfigured || profile.status !== 'approved';
 
+    const handleOpenDetails = (match: RankedProfile) => {
+        setSelectedMatch(match);
+    };
+
+    const handleCloseDetails = () => {
+        setSelectedMatch(null);
+    };
+
+    const handleShowInterest = async (profileId: string) => {
+        if (interestBusy || interestedIds[profileId]) return;
+        setInterestBusy(true);
+
+        try {
+            const response = await fetch('/api/shortlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ profileId }),
+            });
+
+            if (!response.ok) {
+                const payload = await response.json().catch(() => null);
+                if (payload?.error !== 'Already shortlisted') {
+                    throw new Error(payload?.error || 'Failed to show interest');
+                }
+            }
+
+            setInterestedIds((current) => ({ ...current, [profileId]: true }));
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setInterestBusy(false);
+        }
+    };
+
     return (
         <div className={styles.page}>
             <section className={styles.hero}>
@@ -358,7 +457,19 @@ export default function MatchesPage() {
                         ))}
 
                         {!suggestionsLocked && !fetchingMatches && matches.map((match, index) => (
-                            <article key={match.id} className={styles.matchCard}>
+                            <article
+                                key={match.id}
+                                className={styles.matchCard}
+                                onClick={() => handleOpenDetails(match)}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault();
+                                        handleOpenDetails(match);
+                                    }
+                                }}
+                                role="button"
+                                tabIndex={0}
+                            >
                                 <div className={styles.matchImageWrap}>
                                     <Image
                                         src={match.photo_url || match.photos?.[0] || '/image 1.png'}
@@ -371,20 +482,16 @@ export default function MatchesPage() {
                                 </div>
                                 <div className={styles.matchBody}>
                                     <div className={styles.matchHead}>
-                                        <div>
-                                            <h3 className={styles.matchName}>{match.first_name || 'Member'} {match.last_name || ''}</h3>
-                                            <p className={styles.matchMeta}>{getAge(match.date_of_birth) || 'N/A'} yrs, {match.height ? `${match.height} cm` : 'Height open'}</p>
-                                        </div>
-                                        <div className={styles.scorePill}>{match.score}% fit</div>
+                                        <h3 className={styles.matchName}>{`${match.first_name || ''} ${match.last_name || ''}`.trim() || 'Member'}</h3>
+                                        <p className={styles.matchMeta}>Age <span>{getAge(match.date_of_birth) || 'N/A'}</span></p>
                                     </div>
-                                    <div className={styles.infoRows}>
-                                        <span><Briefcase size={14} /> {match.occupation || match.degree || 'Profession not shared'}</span>
-                                        <span><MapPin size={14} /> {[match.city, match.state, match.country].filter(Boolean).join(', ') || 'Location not shared'}</span>
-                                        <span><Heart size={14} /> {match.religion_name || 'Community open'}, {match.mother_tongue || 'Any language'}</span>
-                                    </div>
-                                    <div className={styles.matchFooter}>
-                                        <span>{formatIncome(match.annual_income)}</span>
-                                        <span>{match.marital_status || 'Status open'}</span>
+                                    <div className={styles.tagGrid}>
+                                        <span className={styles.tag}>{match.marital_status || 'Unmarried'}</span>
+                                        <span className={styles.tag}>{match.city || 'Location open'}</span>
+                                        <span className={styles.tag}>{match.mother_tongue || 'Language open'}</span>
+                                        <span className={styles.tag}>{match.religion_name || 'Community open'}</span>
+                                        <span className={styles.tag}>{match.occupation || match.degree || 'Profession open'}</span>
+                                        <span className={`${styles.tag} ${styles.verifiedTag}`}>Verified</span>
                                     </div>
                                 </div>
                             </article>
@@ -473,6 +580,63 @@ export default function MatchesPage() {
                     </div>
                 </form>
             </section>
+
+            {selectedMatch && (
+                <div className={styles.detailOverlay} onClick={handleCloseDetails}>
+                    <div className={styles.detailCard} onClick={(event) => event.stopPropagation()}>
+                        <button type="button" className={styles.detailClose} onClick={handleCloseDetails} aria-label="Close details">
+                            <X size={18} />
+                        </button>
+
+                        <div className={styles.detailPhotoWrap}>
+                            <Image
+                                src={selectedMatch.photo_url || selectedMatch.photos?.[0] || '/image 1.png'}
+                                alt={`${selectedMatch.first_name || 'Member'} profile`}
+                                fill
+                                className={styles.detailPhoto}
+                                unoptimized
+                            />
+                        </div>
+
+                        <div className={styles.detailContent}>
+                            <div className={styles.detailHeader}>
+                                <h2>{`${selectedMatch.first_name || ''} ${selectedMatch.last_name || ''}`.trim() || 'Member'}</h2>
+                                <p>Age <span>{getAge(selectedMatch.date_of_birth) || 'N/A'}</span></p>
+                            </div>
+
+                            <div className={styles.detailFactGrid}>
+                                <p><span>Age:</span> {getAge(selectedMatch.date_of_birth) || 'N/A'} years</p>
+                                <p><span>Religion / Community:</span> {selectedMatch.religion_name || 'Open'}</p>
+                                <p><span>Caste:</span> {selectedMatch.caste_name || 'Open'}</p>
+                                <p><span>Location:</span> {[selectedMatch.city, selectedMatch.state, selectedMatch.country].filter(Boolean).join(', ') || 'Not shared'}</p>
+                                <p><span>Height:</span> {formatHeight(selectedMatch.height)}</p>
+                                <p><span>Marital Status:</span> {selectedMatch.marital_status || 'Not shared'}</p>
+                                <p><span>Job:</span> {selectedMatch.occupation || 'Not shared'}</p>
+                                <p><span>Education:</span> {selectedMatch.degree || 'Not shared'}</p>
+                            </div>
+
+                            <div className={styles.detailAbout}>
+                                <h3>About me</h3>
+                                <p>{selectedMatch.about_me || 'This member has not shared their introduction yet.'}</p>
+                            </div>
+
+                            <div className={styles.detailActions}>
+                                <button
+                                    type="button"
+                                    className={styles.detailPrimaryBtn}
+                                    disabled={interestBusy || Boolean(interestedIds[selectedMatch.id])}
+                                    onClick={() => void handleShowInterest(selectedMatch.id)}
+                                >
+                                    {interestBusy ? 'Updating...' : interestedIds[selectedMatch.id] ? 'Interested' : 'Show Interest'}
+                                </button>
+                                <button type="button" className={styles.detailSecondaryBtn} onClick={handleCloseDetails}>
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {showPopup && (
                 <div className={styles.popupOverlay} onClick={() => setShowPopup(false)}>

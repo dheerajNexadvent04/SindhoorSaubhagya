@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ChevronDown, Filter, MapPin, Ruler, Search } from 'lucide-react';
+import { ChevronDown, Filter, Search } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthProvider';
 import styles from './profile.module.css';
@@ -44,8 +44,10 @@ type SuggestedProfile = {
     gender: string | null;
     date_of_birth: string | null;
     height: number | null;
+    marital_status: string | null;
     religion_name: string | null;
     caste_name: string | null;
+    mother_tongue: string | null;
     city: string | null;
     state: string | null;
     photo_url: string | null;
@@ -66,6 +68,14 @@ type LiveFilters = {
 
 const ageOptions = Array.from({ length: 23 }, (_, index) => `${index + 21}`);
 const heightOptions = Array.from({ length: 41 }, (_, index) => `${145 + index}`);
+
+const normalizeGenderValue = (value: string | null | undefined) => {
+    const normalized = (value || '').trim().toLowerCase();
+    if (!normalized) return '';
+    if (normalized === 'female' || normalized === 'bride' || normalized === 'woman' || normalized === 'f') return 'female';
+    if (normalized === 'male' || normalized === 'groom' || normalized === 'man' || normalized === 'm') return 'male';
+    return normalized;
+};
 
 const getDefaultPreferences = (gender?: string | null): PreferencesForm => ({
     preferred_gender: gender === 'male' ? 'female' : gender === 'female' ? 'male' : '',
@@ -113,11 +123,15 @@ const scoreProfile = (candidate: SuggestedProfile, preferences: PreferencesForm)
     const ageMax = preferences.age_max ? parseInt(preferences.age_max, 10) : null;
     const heightMin = preferences.height_min ? parseInt(preferences.height_min, 10) : null;
     const heightMax = preferences.height_max ? parseInt(preferences.height_max, 10) : null;
+    const preferredGender = normalizeGenderValue(preferences.preferred_gender);
+    const candidateGender = normalizeGenderValue(candidate.gender);
 
     if (ageMin !== null && candidateAge !== null) score += candidateAge >= ageMin ? 10 : -8;
     if (ageMax !== null && candidateAge !== null) score += candidateAge <= ageMax ? 10 : -8;
     if (heightMin !== null && candidate.height !== null) score += candidate.height >= heightMin ? 6 : -4;
     if (heightMax !== null && candidate.height !== null) score += candidate.height <= heightMax ? 6 : -4;
+    if (preferredGender && candidateGender === preferredGender) score += 16;
+    if (preferredGender && candidateGender && candidateGender !== preferredGender) score -= 18;
     if (preferences.religion_name && candidate.religion_name === preferences.religion_name) score += 12;
     if (preferences.caste_name && candidate.caste_name?.toLowerCase() === preferences.caste_name.toLowerCase()) score += 10;
     if (preferences.city && candidate.city?.toLowerCase() === preferences.city.toLowerCase()) score += 9;
@@ -169,21 +183,24 @@ export default function ProfileGalleryPage() {
                 return;
             }
 
-            let query = supabase
+            const query = supabase
                 .from('profiles')
-                .select('id, first_name, last_name, gender, date_of_birth, height, religion_name, caste_name, city, state, photo_url, photos, occupation, degree')
+                .select('id, first_name, last_name, gender, date_of_birth, height, marital_status, religion_name, caste_name, mother_tongue, city, state, photo_url, photos, occupation, degree')
                 .eq('status', 'approved')
                 .neq('id', typedProfile.id)
-                .limit(40);
-
-            if (preferences.preferred_gender) {
-                query = query.eq('gender', preferences.preferred_gender);
-            }
+                .limit(120);
 
             const { data: candidates, error: candidateError } = await query;
             if (candidateError) throw candidateError;
 
-            const rankedMatches = (((candidates as SuggestedProfile[] | null) || []).map((candidate) => ({
+            const candidateRows = ((candidates as SuggestedProfile[] | null) || []);
+            const preferredGender = normalizeGenderValue(preferences.preferred_gender);
+            const preferredGenderCandidates = preferredGender
+                ? candidateRows.filter((candidate) => normalizeGenderValue(candidate.gender) === preferredGender)
+                : candidateRows;
+            const rankedSource = preferredGenderCandidates.length > 0 ? preferredGenderCandidates : candidateRows;
+
+            const rankedMatches = (rankedSource.map((candidate) => ({
                 ...candidate,
                 score: Math.max(1, Math.min(99, scoreProfile(candidate, preferences))),
             }))).sort((a, b) => b.score - a.score);
@@ -261,6 +278,11 @@ export default function ProfileGalleryPage() {
         if (casteQuery && !(match.caste_name || '').toLowerCase().includes(casteQuery)) return false;
         return true;
     });
+    const hasActiveFilters = Boolean(
+        filters.ageMin || filters.ageMax || filters.city.trim() || filters.heightMin || filters.caste.trim()
+    );
+    const useFallbackMatches = hasActiveFilters && filteredMatches.length === 0 && matches.length > 0;
+    const visibleMatches = useFallbackMatches ? matches : filteredMatches;
 
     const handleFilterChange = (field: keyof LiveFilters, value: string) => {
         setFilters((current) => ({ ...current, [field]: value }));
@@ -304,7 +326,7 @@ export default function ProfileGalleryPage() {
                 <div className={styles.gridShell}>
                     <div className={styles.gridHeader}>
                         <span>Your Matches</span>
-                        <span className={styles.matchCount}>{filteredMatches.length} profiles</span>
+                        <span className={styles.matchCount}>{visibleMatches.length} profiles</span>
                     </div>
 
                     {loading ? (
@@ -322,42 +344,51 @@ export default function ProfileGalleryPage() {
                             <h3>Wait till profile approved</h3>
                             <p>Your preferences are saved. Suggestions will unlock automatically after admin approves your profile.</p>
                         </div>
-                    ) : filteredMatches.length === 0 ? (
+                    ) : visibleMatches.length === 0 ? (
                         <div className={styles.emptyState}>
-                            <h3>No profiles match these filters</h3>
-                            <p>Try widening the age, height, city, or caste filters to see more relevant profiles.</p>
+                            <h3>No profiles available right now</h3>
+                            <p>We could not find profiles yet. Please check again soon.</p>
                         </div>
                     ) : (
                         <div className={styles.cardGrid}>
-                            {filteredMatches.map((match) => (
+                            {visibleMatches.map((match) => (
                                 <article key={match.id} className={styles.profileCard}>
-                                    <div className={styles.imageWrap}>
-                                        <Image
-                                            src={match.photo_url || match.photos?.[0] || '/image 1.png'}
-                                            alt={`${match.first_name || 'Member'} profile`}
-                                            fill
-                                            className={styles.profileImage}
-                                            unoptimized
-                                        />
-                                    </div>
-                                    <div className={styles.cardBody}>
-                                        <h3 className={styles.profileName}>
-                                            {match.first_name || 'Member'}, {getAge(match.date_of_birth) || 'N/A'}
-                                        </h3>
-                                        <p className={styles.profileMeta}>
-                                            {match.occupation || match.degree || 'Profession not shared'}
-                                            {match.city ? `, ${match.city}` : ''}
-                                        </p>
-                                        <div className={styles.profileFacts}>
-                                            <span><MapPin size={14} /> {match.city || 'City open'}</span>
-                                            <span><Ruler size={14} /> {match.height ? `${match.height} cm` : 'Height open'}</span>
+                                    <Link href={`/dashboard/profile/${match.id}`} className={styles.cardLink}>
+                                        <div className={styles.imageWrap}>
+                                            <Image
+                                                src={match.photo_url || match.photos?.[0] || '/image 1.png'}
+                                                alt={`${match.first_name || 'Member'} profile`}
+                                                fill
+                                                className={styles.profileImage}
+                                                unoptimized
+                                            />
                                         </div>
-                                        <Link href={`/dashboard/profile/${match.id}`} className={styles.viewButton}>
-                                            View Profile
-                                        </Link>
-                                    </div>
+                                        <div className={styles.cardBody}>
+                                            <div className={styles.profileHead}>
+                                                <h3 className={styles.profileName}>
+                                                    {`${match.first_name || ''} ${match.last_name || ''}`.trim() || 'Member'}
+                                                </h3>
+                                                <p className={styles.ageText}>Age <span>{getAge(match.date_of_birth) || 'N/A'}</span></p>
+                                            </div>
+
+                                            <div className={styles.tagGrid}>
+                                                <span className={styles.tag}>{match.marital_status || 'Unmarried'}</span>
+                                                <span className={styles.tag}>{match.city || 'Location open'}</span>
+                                                <span className={styles.tag}>{match.mother_tongue || 'Language open'}</span>
+                                                <span className={styles.tag}>{match.religion_name || 'Community open'}</span>
+                                                <span className={styles.tag}>{match.occupation || match.degree || 'Profession open'}</span>
+                                                <span className={`${styles.tag} ${styles.verifiedTag}`}>Verified</span>
+                                            </div>
+                                        </div>
+                                    </Link>
                                 </article>
                             ))}
+                        </div>
+                    )}
+
+                    {useFallbackMatches && (
+                        <div style={{ marginTop: '12px', color: '#6b7280', fontSize: '0.9rem' }}>
+                            No exact filter match found, showing all profiles from most suggested to least suggested.
                         </div>
                     )}
                 </div>

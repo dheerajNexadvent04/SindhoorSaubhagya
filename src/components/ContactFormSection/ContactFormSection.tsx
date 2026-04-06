@@ -1,10 +1,56 @@
 "use client";
 
 import React from 'react';
-import { MapPin, Mail, Phone, Send } from 'lucide-react';
+import { MapPin, Mail, Phone } from 'lucide-react';
 import styles from './ContactFormSection.module.css';
+import { sendToGoogleSheet } from '@/lib/googleSheet';
 
 const ContactFormSection = () => {
+    const [formData, setFormData] = React.useState({
+        fullName: '',
+        email: '',
+        phone: '',
+        subject: '',
+        message: '',
+    });
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [submitMessage, setSubmitMessage] = React.useState<string | null>(null);
+
+    const handleChange = (
+        e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    ) => {
+        setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        setSubmitMessage(null);
+
+        try {
+            await sendToGoogleSheet({
+                formType: 'contact-page-message',
+                submittedAt: new Date().toISOString(),
+                pagePath: '/contact',
+                ...formData,
+            });
+
+            setSubmitMessage('Message submitted successfully. Our team will contact you soon.');
+            setFormData({
+                fullName: '',
+                email: '',
+                phone: '',
+                subject: '',
+                message: '',
+            });
+        } catch (error) {
+            console.error('ContactFormSection: submit failed', error);
+            setSubmitMessage('Unable to submit right now. Please try again in a moment.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
         <section className={styles.section}>
             <div className={styles.container}>
@@ -12,22 +58,52 @@ const ContactFormSection = () => {
                 {/* Left Side - Form */}
                 <div className={styles.formSide}>
                     <h2 className={styles.formTitle}>Send us a Message</h2>
-                    <form>
+                    <form onSubmit={handleSubmit} data-sheet-ignore="true" data-form-type="contact-page-message">
                         <div className={styles.formGroup}>
                             <label className={styles.label}>Full Name</label>
-                            <input type="text" placeholder="Enter your full name" className={styles.input} />
+                            <input
+                                type="text"
+                                name="fullName"
+                                placeholder="Enter your full name"
+                                className={styles.input}
+                                value={formData.fullName}
+                                onChange={handleChange}
+                                required
+                            />
                         </div>
                         <div className={styles.formGroup}>
                             <label className={styles.label}>Email Address</label>
-                            <input type="email" placeholder="your.email@example.com" className={styles.input} />
+                            <input
+                                type="email"
+                                name="email"
+                                placeholder="your.email@example.com"
+                                className={styles.input}
+                                value={formData.email}
+                                onChange={handleChange}
+                                required
+                            />
                         </div>
                         <div className={styles.formGroup}>
                             <label className={styles.label}>Phone Number</label>
-                            <input type="tel" placeholder="+91 98765 43210" className={styles.input} />
+                            <input
+                                type="tel"
+                                name="phone"
+                                placeholder="+91 98765 43210"
+                                className={styles.input}
+                                value={formData.phone}
+                                onChange={handleChange}
+                                required
+                            />
                         </div>
                         <div className={styles.formGroup}>
                             <label className={styles.label}>Subject</label>
-                            <select className={styles.select} defaultValue="">
+                            <select
+                                className={styles.select}
+                                name="subject"
+                                value={formData.subject}
+                                onChange={handleChange}
+                                required
+                            >
                                 <option value="" disabled>Select a subject</option>
                                 <option value="general">General Inquiry</option>
                                 <option value="support">Technical Support</option>
@@ -37,12 +113,22 @@ const ContactFormSection = () => {
                         </div>
                         <div className={styles.formGroup}>
                             <label className={styles.label}>Message / Query</label>
-                            <textarea placeholder="Tell us how we can help you..." className={styles.textarea}></textarea>
+                            <textarea
+                                name="message"
+                                placeholder="Tell us how we can help you..."
+                                className={styles.textarea}
+                                value={formData.message}
+                                onChange={handleChange}
+                                required
+                            ></textarea>
                         </div>
 
-                        <button type="submit" className={styles.submitButton}>
-                            Send Message
+                        <button type="submit" className={styles.submitButton} disabled={isSubmitting}>
+                            {isSubmitting ? 'Sending...' : 'Send Message'}
                         </button>
+                        {submitMessage && (
+                            <p style={{ marginTop: '12px', fontSize: '14px', color: '#333' }}>{submitMessage}</p>
+                        )}
                     </form>
                 </div>
 

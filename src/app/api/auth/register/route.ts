@@ -1,13 +1,21 @@
 import { createClient } from '@/utils/supabase/server';
+import { sendNewProfileOwnerAlert } from '@/lib/profileAlertEmail';
+import { isOwnerAlertEnabled } from '@/lib/adminSettings';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 const registerSchema = z.object({
     email: z.string().email(),
     password: z.string().min(8),
-    phone: z.string().regex(/^\+91[0-9]{10}$/, "Invalid India phone number format (+91XXXXXXXXXX)"),
+    phone: z.preprocess(
+        (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+        z.string().regex(/^(\+?[0-9]{10,15})$/, "Invalid phone format. Use digits (10-15) with optional +country code.").optional()
+    ),
     firstName: z.string().min(2),
-    lastName: z.string().min(2).optional().default(''),
+    lastName: z.preprocess(
+        (value) => (typeof value === 'string' ? value.trim() : value),
+        z.string().optional().default('')
+    ),
     gender: z.enum(['male', 'female', 'other']).optional(),
     dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     profileFor: z.string().optional(),
@@ -44,17 +52,30 @@ const registerSchema = z.object({
     aboutMe: z.string().optional(),
 });
 
+const normalizePhone = (phone?: string) => {
+    if (!phone) return undefined;
+    const trimmed = phone.trim();
+    if (!trimmed) return undefined;
+
+    const digits = trimmed.replace(/\D/g, '');
+    if (!digits) return undefined;
+
+    if (trimmed.startsWith('+')) return `+${digits}`;
+    if (digits.length === 10) return `+91${digits}`;
+    return `+${digits}`;
+};
+
 export async function POST(request: Request) {
     try {
         const body = await request.json();
         const validatedData = registerSchema.parse(body);
         const supabase = await createClient();
         const origin = new URL(request.url).origin;
+        const normalizedPhone = normalizePhone(validatedData.phone);
 
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        const signUpPayload = {
             email: validatedData.email,
             password: validatedData.password,
-            phone: validatedData.phone,
             options: {
                 emailRedirectTo: `${origin}/auth/callback`,
                 data: {
@@ -62,7 +83,7 @@ export async function POST(request: Request) {
                     last_name: validatedData.lastName,
                     gender: validatedData.gender,
                     date_of_birth: validatedData.dob,
-                    phone: validatedData.phone,
+                    phone: normalizedPhone,
                     profile_for: validatedData.profileFor,
                     managed_by: validatedData.managedBy,
                     looking_for: validatedData.lookingFor,
@@ -97,7 +118,13 @@ export async function POST(request: Request) {
                     about_me: validatedData.aboutMe,
                 }
             }
-        });
+        };
+
+        if (normalizedPhone) {
+            (signUpPayload as { phone?: string }).phone = normalizedPhone;
+        }
+
+        const { data: authData, error: authError } = await supabase.auth.signUp(signUpPayload);
 
         if (authError) {
             console.error("Auth Error:", authError);
@@ -121,7 +148,7 @@ export async function POST(request: Request) {
                 last_name: validatedData.lastName,
                 gender: validatedData.gender,
                 date_of_birth: validatedData.dob,
-                phone: validatedData.phone,
+                phone: normalizedPhone,
                 profile_for: validatedData.profileFor,
                 managed_by: validatedData.managedBy,
                 looking_for: validatedData.lookingFor,
@@ -165,6 +192,29 @@ export async function POST(request: Request) {
                 { success: false, error: "User created but profile setup failed: " + profileError.message },
                 { status: 500 }
             );
+        }
+
+        try {
+            const ownerAlertEnabled = await isOwnerAlertEnabled();
+            if (ownerAlertEnabled) {
+                await sendNewProfileOwnerAlert({
+                    userId: authData.user.id,
+                    email: validatedData.email,
+                    firstName: validatedData.firstName,
+                    lastName: validatedData.lastName,
+                    phone: normalizedPhone,
+                    profileFor: validatedData.profileFor,
+                    gender: validatedData.gender,
+                    religion: validatedData.religion,
+                    caste: validatedData.caste,
+                    city: validatedData.city,
+                    state: validatedData.state,
+                });
+            } else {
+                console.log('Owner alert email skipped: admin toggle is disabled.');
+            }
+        } catch (mailOrSettingError) {
+            console.error("Owner alert email failed:", mailOrSettingError);
         }
 
         return NextResponse.json({

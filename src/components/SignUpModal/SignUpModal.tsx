@@ -1,35 +1,36 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { X, Eye, EyeOff } from 'lucide-react';
 import styles from './SignUpModal.module.css';
-import { supabase } from '@/lib/supabase';
 
 interface SignUpModalProps {
     isOpen: boolean;
     onClose: () => void;
     onLoginClick?: () => void;
-    initialData?: any;
+    initialData?: {
+        email?: string;
+        password?: string;
+        profileFor?: string;
+    };
 }
 
 const SignUpModal = ({ isOpen, onClose, onLoginClick, initialData }: SignUpModalProps) => {
     // ... existing state ...
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const router = useRouter();
 
     // Form States
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [firstName, setFirstName] = useState('');
-    const [lastName, setLastName] = useState('');
+    const [lastName] = useState('');
     const [dob, setDob] = useState('');
     const [religion, setReligion] = useState('');
     const [caste, setCaste] = useState('');
-    const [gender, setGender] = useState('');
+    const [gender] = useState('');
     const [profileFor, setProfileFor] = useState('');
-    const [phone, setPhone] = useState('');
+    const [phone] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
     React.useEffect(() => {
@@ -48,35 +49,43 @@ const SignUpModal = ({ isOpen, onClose, onLoginClick, initialData }: SignUpModal
         setError(null);
 
         try {
-            const { data, error } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: {
-                        first_name: firstName,
-                        last_name: lastName,
-                        dob: dob,
-                        religion: religion,
-                        caste: caste,
-                        gender: gender,
-                        profile_for: profileFor,
-                        phone: phone,
-                    },
-                    emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
-                },
-            });
+            const parts = firstName.trim().split(/\s+/).filter(Boolean);
+            const parsedFirstName = parts[0] || '';
+            const parsedLastName = lastName.trim() || parts.slice(1).join(' ');
 
-            if (error) throw error;
-
-            if (data.session) {
-                onClose();
-                router.push('/dashboard');
-            } else if (data.user) {
-                setError("Please check your email to confirm your account.");
+            if (!parsedFirstName) {
+                throw new Error('Please enter your name.');
             }
 
-        } catch (err: any) {
-            setError(err.message || 'Signup failed');
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: email.trim(),
+                    password,
+                    firstName: parsedFirstName,
+                    lastName: parsedLastName,
+                    dob,
+                    religion,
+                    caste,
+                    gender,
+                    profileFor,
+                    phone,
+                }),
+            });
+
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Signup failed');
+            }
+
+            alert('Profile created successfully! Please check your email to confirm your account.');
+            onClose();
+
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Signup failed');
         } finally {
             setLoading(false);
         }

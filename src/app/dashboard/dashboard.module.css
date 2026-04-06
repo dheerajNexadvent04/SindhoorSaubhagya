@@ -93,6 +93,23 @@
     gap: 15px;
 }
 
+.clickableStatCard {
+    border: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.clickableStatCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.statCardActive {
+    outline: 2px solid rgba(76, 175, 80, 0.35);
+}
+
 .statIconWrapper {
     width: 45px;
     height: 45px;
@@ -121,6 +138,14 @@
     font-weight: 600;
     margin-bottom: 20px;
     color: #333;
+}
+
+.viewedProfilesSection {
+    background: white;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
 .recommendationsGrid {
@@ -546,6 +571,21 @@
     font-size: 0.82rem;
     font-weight: 600;
     flex-shrink: 0;
+}
+
+.viewAgainBtn {
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid #e31e24;
+    color: #e31e24;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    flex-shrink: 0;
+}
+
+.viewAgainBtn:hover {
+    background: #fff0f1;
 }
 
 .emptyInterested {

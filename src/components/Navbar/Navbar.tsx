@@ -8,11 +8,10 @@ import styles from './Navbar.module.css';
 import { useModal } from '@/context/ModalContext';
 import { useAuth } from '@/context/AuthProvider';
 import { usePathname } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 
 const Navbar = () => {
     const { openLogin } = useModal();
-    const { session, user, profile, loading: authLoading, refreshSession } = useAuth();
+    const { session, user, profile } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const pathname = usePathname();
     const isAuthenticated = Boolean(session?.user || user);
@@ -22,10 +21,6 @@ const Navbar = () => {
     };
 
     useEffect(() => {
-        setIsMobileMenuOpen(false);
-    }, [pathname]);
-
-    useEffect(() => {
         if (!isMobileMenuOpen) return;
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
@@ -33,20 +28,6 @@ const Navbar = () => {
             document.body.style.overflow = previousOverflow;
         };
     }, [isMobileMenuOpen]);
-
-    // Fix for "stale logout" bug when using browser back button or Next.js router cache
-    useEffect(() => {
-        if (!authLoading && !isAuthenticated) {
-            const checkSession = async () => {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session?.user) {
-                    console.log("Navbar: Stale auth state detected (Found session without user context). Forcing refresh.");
-                    await refreshSession();
-                }
-            };
-            void checkSession();
-        }
-    }, [pathname, authLoading, isAuthenticated, refreshSession]);
 
     // Hide Navbar on Admin and Dashboard pages
     if (pathname?.startsWith('/admin') || pathname?.startsWith('/dashboard')) {

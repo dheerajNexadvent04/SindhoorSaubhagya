@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import styles from './Hero.module.css';
-import { Heart, ChevronRight, ChevronLeft, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import CustomSelect from '../common/CustomSelect';
 
@@ -122,15 +122,15 @@ const Hero = () => {
                 setError('Please enter a valid 10-15 digit phone number');
                 return;
             }
-            if (formData.password.length < 6) {
-                setError('Password must be at least 6 characters');
+            if (formData.password.length < 8) {
+                setError('Password must be at least 8 characters');
                 return;
             }
 
             // Check for duplicate email
             setLoading(true);
             try {
-                const { data, error } = await supabase
+                const { data } = await supabase
                     .from('profiles')
                     .select('user_id')
                     .eq('email', formData.email)
@@ -141,7 +141,7 @@ const Hero = () => {
                     setLoading(false);
                     return;
                 }
-            } catch (err) {
+            } catch {
                 // Ignore
             } finally {
                 setLoading(false);
@@ -224,60 +224,64 @@ const Hero = () => {
         setError(null);
 
         try {
-            const { data, error: signUpError } = await supabase.auth.signUp({
-                email: formData.email,
-                password: formData.password,
-                options: {
-                    emailRedirectTo: `${window.location.origin}/auth/callback`,
-                    data: {
-                        first_name: formData.firstName,
-                        last_name: formData.lastName,
-                        gender: formData.gender,
-                        date_of_birth: formData.dob,
-                        height: formData.height,
-                        weight: formData.weight,
-                        body_type: formData.bodyType,
-                        blood_group: formData.bloodGroup,
-                        complexion: formData.complexion,
-                        marital_status: formData.maritalStatus,
-                        mother_tongue: formData.motherTongue,
-                        religion_name: formData.religion,
-                        caste_name: formData.caste,
-                        sub_caste_name: formData.subCaste,
-                        manglik: formData.manglik,
-                        profile_for: formData.profileFor,
-                        managed_by: formData.managedBy,
-                        looking_for: formData.lookingFor,
-                        degree: formData.degree,
-                        employed_in: formData.employedIn,
-                        occupation: formData.occupation,
-                        annual_income: formData.income,
-                        country: formData.country,
-                        state: formData.state,
-                        city: formData.city,
-                        family_type: formData.familyType,
-                        father_occupation: formData.fatherOcc,
-                        mother_occupation: formData.motherOcc,
-                        brothers_total: formData.brothersTotal,
-                        brothers_married: formData.brothersMarried,
-                        sisters_total: formData.sistersTotal,
-                        sisters_married: formData.sistersMarried,
-                        native_city: formData.nativeCity,
-                        family_location: formData.familyLocation,
-                        about_me: formData.aboutMe,
-                        phone: formData.phone,
-                        about_family: formData.aboutFamily,
-                    },
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
                 },
+                body: JSON.stringify({
+                    email: formData.email,
+                    password: formData.password,
+                    phone: formData.phone,
+                    firstName: formData.firstName,
+                    lastName: formData.lastName,
+                    dob: formData.dob,
+                    profileFor: formData.profileFor,
+                    managedBy: formData.managedBy,
+                    gender: formData.gender,
+                    lookingFor: formData.lookingFor,
+                    height: formData.height,
+                    weight: formData.weight,
+                    bodyType: formData.bodyType,
+                    bloodGroup: formData.bloodGroup,
+                    complexion: formData.complexion,
+                    maritalStatus: formData.maritalStatus,
+                    motherTongue: formData.motherTongue,
+                    religion: formData.religion,
+                    caste: formData.caste,
+                    subCaste: formData.subCaste,
+                    manglik: formData.manglik,
+                    degree: formData.degree,
+                    employedIn: formData.employedIn,
+                    occupation: formData.occupation,
+                    income: formData.income,
+                    country: formData.country,
+                    state: formData.state,
+                    city: formData.city,
+                    familyType: formData.familyType,
+                    fatherOcc: formData.fatherOcc,
+                    motherOcc: formData.motherOcc,
+                    brothersTotal: formData.brothersTotal,
+                    brothersMarried: formData.brothersMarried,
+                    sistersTotal: formData.sistersTotal,
+                    sistersMarried: formData.sistersMarried,
+                    nativeCity: formData.nativeCity,
+                    familyLocation: formData.familyLocation,
+                    aboutFamily: formData.aboutFamily,
+                    aboutMe: formData.aboutMe,
+                }),
             });
 
-            if (signUpError) throw signUpError;
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Registration failed.');
+            }
 
             // Show success message and redirect
             alert("Registration successful! PLEASE CHECK YOUR EMAIL to confirm your account before logging in.");
             window.location.href = '/';
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Registration failed.');
         } finally {
             setLoading(false);
         }

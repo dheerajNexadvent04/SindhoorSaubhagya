@@ -1,0 +1,204 @@
+.page {
+    display: grid;
+    gap: 18px;
+}
+
+.backLink {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #374151;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.profileShell {
+    display: grid;
+    grid-template-columns: minmax(260px, 360px) 1fr;
+    gap: 24px;
+    background: #fff;
+    border: 1px solid rgba(227, 30, 36, 0.45);
+    border-radius: 34px;
+    padding: 16px;
+}
+
+.photoFrame {
+    position: relative;
+    min-height: 540px;
+    border-radius: 28px;
+    overflow: hidden;
+    border: none;
+    background: #f3f4f6;
+}
+
+.profileImage {
+    object-fit: cover;
+}
+
+.content {
+    display: grid;
+    gap: 18px;
+    padding: 6px 18px 12px 6px;
+}
+
+.headerRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.name {
+    margin: 0;
+    color: #111827;
+    font-size: clamp(1.8rem, 2.8vw, 3rem);
+    line-height: 1.02;
+}
+
+.ageMeta {
+    margin: 8px 0 0;
+    color: #4b5563;
+    font-size: 1.8rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.ageMeta span {
+    font-weight: 700;
+}
+
+.facts {
+    display: grid;
+    gap: 5px;
+    color: #374151;
+}
+
+.facts p {
+    margin: 0;
+    font-size: 1.03rem;
+    line-height: 1.35;
+}
+
+.facts span {
+    color: #e31e24;
+    font-weight: 700;
+}
+
+.about {
+    display: grid;
+    gap: 10px;
+}
+
+.about h2 {
+    margin: 0;
+    color: #e31e24;
+    font-size: clamp(1.7rem, 2.3vw, 2.1rem);
+}
+
+.about p {
+    margin: 0;
+    color: #374151;
+    line-height: 1.5;
+    font-size: 1.05rem;
+}
+
+.actions {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.actionButton {
+    height: 50px;
+    min-width: 210px;
+    padding: 0 20px;
+    border-radius: 999px;
+    font-size: 0.96rem;
+    font-weight: 700;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.actionButton:hover {
+    transform: translateY(-1px);
+}
+
+.primaryAction {
+    border: none;
+    background: #e31e24;
+    color: #fff;
+    box-shadow: 0 12px 24px rgba(227, 30, 36, 0.24);
+    cursor: pointer;
+}
+
+.primaryAction:disabled {
+    cursor: default;
+    opacity: 0.82;
+}
+
+.secondaryAction {
+    border: 1.5px solid #e31e24;
+    color: #e31e24;
+    background: #fff;
+}
+
+.secondaryAction:hover {
+    background: #fff0f1;
+}
+
+.infoState {
+    padding: 24px;
+    color: #6b7280;
+}
+
+@media (max-width: 1060px) {
+    .profileShell {
+        grid-template-columns: 1fr;
+    }
+
+    .photoFrame {
+        min-height: 430px;
+    }
+
+    .content {
+        padding: 8px 10px 12px;
+    }
+}
+
+@media (max-width: 640px) {
+    .profileShell {
+        border-radius: 24px;
+        padding: 12px;
+        gap: 16px;
+    }
+
+    .photoFrame {
+        border-radius: 18px;
+        min-height: 340px;
+    }
+
+    .headerRow {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .ageMeta {
+        margin-top: 0;
+        font-size: 1.4rem;
+    }
+
+    .actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .actionButton {
+        width: 100%;
+        min-width: 0;
+    }
+}
