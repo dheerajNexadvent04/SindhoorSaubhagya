@@ -65,10 +65,23 @@ const normalizePhone = (phone?: string) => {
     return `+${digits}`;
 };
 
+const isBlockedReligion = (religion?: string) => {
+    if (!religion) return false;
+    return religion.trim().toLowerCase() === 'muslim';
+};
+
 export async function POST(request: Request) {
     try {
         const body = await request.json();
         const validatedData = registerSchema.parse(body);
+
+        if (isBlockedReligion(validatedData.religion)) {
+            return NextResponse.json(
+                { success: false, error: 'This religion is not supported on this platform.' },
+                { status: 400 }
+            );
+        }
+
         const supabase = await createClient();
         const origin = new URL(request.url).origin;
         const normalizedPhone = normalizePhone(validatedData.phone);

@@ -260,10 +260,6 @@ export default function AdminPrintUserDetails({ userId }: { userId: string }) {
                     <h3>Location</h3>
                     <div className={styles.grid}>
                         <p><span>City</span>{formatValue(profile.city)}</p>
-                        <p><span>State</span>{formatValue(profile.state)}</p>
-                        <p><span>Country</span>{formatValue(profile.country)}</p>
-                        <p><span>Native City</span>{formatValue(profile.native_city)}</p>
-                        <p><span>Family Location</span>{formatValue(profile.family_location)}</p>
                     </div>
                 </section>
 

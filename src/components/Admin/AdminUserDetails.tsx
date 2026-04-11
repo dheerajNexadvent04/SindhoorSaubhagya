@@ -286,7 +286,7 @@ export default function AdminUserDetails({ userId }: { userId: string }) {
                                 <Users size={20} /> Religion & Community
                             </h3>
                             <div className="grid grid-cols-2 gap-4">
-                                <InputGroup label="Religion" name="religion_name" options={['Hindu', 'Muslim', 'Sikh', 'Christian', 'Jain', 'Other']} />
+                                <InputGroup label="Religion" name="religion_name" options={['Hindu', 'Sikh', 'Christian', 'Jain', 'Other']} />
                                 <InputGroup label="Caste" name="caste_name" />
                                 <InputGroup label="Sub Caste" name="sub_caste_name" />
                                 <InputGroup label="Manglik" name="manglik" options={['no', 'yes', 'anshik']} />

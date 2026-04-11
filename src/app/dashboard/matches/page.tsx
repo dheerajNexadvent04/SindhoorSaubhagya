@@ -63,7 +63,7 @@ type SuggestedProfile = {
 type RankedProfile = SuggestedProfile & { score: number };
 
 const maritalOptions = ['', 'Never Married', 'Divorced', 'Widowed', 'Awaiting Divorce'];
-const religionOptions = ['', 'Hindu', 'Muslim', 'Sikh', 'Christian', 'Jain', 'Buddhist', 'Other'];
+const religionOptions = ['', 'Hindu', 'Sikh', 'Christian', 'Jain', 'Buddhist', 'Other'];
 const manglikOptions = ['', 'no', 'yes', 'anshik'];
 const employedInOptions = ['', 'Private', 'Government', 'Business', 'Self-Employed'];
 const motherTongueOptions = ['', 'Hindi', 'English', 'Punjabi', 'Gujarati', 'Marathi', 'Bengali', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Urdu', 'Other'];

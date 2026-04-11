@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -13,18 +13,36 @@ export default function AdminLogin() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [pendingRedirect, setPendingRedirect] = useState(false);
     const router = useRouter();
     const supabase = createClient();
 
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (pendingRedirect && session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+                setLoading(false);
+                setError(null);
+                setPendingRedirect(false);
+                router.replace('/admin/dashboard');
+                router.refresh();
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, [pendingRedirect, router, supabase.auth]);
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (loading) return;
+
         setLoading(true);
         setError(null);
+        setPendingRedirect(true);
 
         try {
             // 1. Sign in with Supabase
             const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                email,
+                email: email.trim(),
                 password,
             });
 
@@ -36,6 +54,7 @@ export default function AdminLogin() {
                 .from('admin_users')
                 .select('role')
                 .eq('user_id', authData.user.id)
+                .eq('is_active', true)
                 .single();
 
             if (adminError || !adminData) {
@@ -43,11 +62,13 @@ export default function AdminLogin() {
             }
 
             // 3. Redirect to Dashboard
-            router.push('/admin/dashboard');
+            setPendingRedirect(false);
+            router.replace('/admin/dashboard');
             router.refresh();
 
         } catch (err: unknown) {
             console.error('Login failed:', err);
+            setPendingRedirect(false);
             const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
             if (message.includes('Invalid login credentials')) {
                 setError('Invalid email or password.');

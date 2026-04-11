@@ -1,5 +1,6 @@
 "use client";
 
+import React from 'react';
 import Image from 'next/image';
 import { Heart, UserCheck, Search, ArrowRight } from 'lucide-react';
 import styles from './HowItWorks.module.css';
@@ -40,41 +41,80 @@ const steps = [
 ];
 
 const HowItWorks = () => {
+    const rowRefs = React.useRef<Array<HTMLDivElement | null>>([]);
+    const [visibleRows, setVisibleRows] = React.useState<boolean[]>(() => steps.map(() => false));
+
+    React.useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+                    const index = Number((entry.target as HTMLElement).dataset.index || '-1');
+                    if (index < 0) return;
+
+                    setVisibleRows((current) => {
+                        if (current[index]) return current;
+                        const next = [...current];
+                        next[index] = true;
+                        return next;
+                    });
+
+                    observer.unobserve(entry.target);
+                });
+            },
+            { threshold: 0.25, rootMargin: '0px 0px -8% 0px' }
+        );
+
+        rowRefs.current.forEach((row) => {
+            if (row) observer.observe(row);
+        });
+
+        return () => observer.disconnect();
+    }, []);
+
     return (
         <section className={styles.section}>
-            <div className={styles.heading}>
-                <h2 className={styles.title}>How the <span className={styles.highlight}>Journey Usually Goes</span></h2>
-                <p className={styles.subtitle}>We have kept the process simple and honest so you can focus on what actually matters, finding the right person.</p>
-            </div>
+            <div className={styles.sectionInner}>
+                <div className={styles.heading}>
+                    <h2 className={styles.title}>How the <span className={styles.highlight}>Journey Usually Goes</span></h2>
+                    <p className={styles.subtitle}>We have kept the process simple and honest so you can focus on what actually matters, finding the right person.</p>
+                </div>
 
-            <div className={styles.stepsContainer}>
-                {steps.map((step, index) => (
-                    <div
-                        key={step.id}
-                        className={`${styles.stepRow} ${index % 2 !== 0 ? styles.reverse : ''}`}
-                    >
-                        <div className={styles.textContent}>
-                            <div className={styles.iconContainer}>
-                                {step.icon}
+                <div className={styles.stepsContainer}>
+                    {steps.map((step, index) => (
+                        <div
+                            key={step.id}
+                            className={`${styles.stepRow} ${index % 2 !== 0 ? styles.reverse : ''}`}
+                            ref={(element) => { rowRefs.current[index] = element; }}
+                            data-index={index}
+                        >
+                            <div
+                                className={`${styles.textContent} ${index % 2 === 0 ? styles.textFromLeft : styles.textFromRight} ${visibleRows[index] ? styles.rowVisible : ''}`}
+                            >
+                                <div className={styles.iconContainer}>
+                                    {step.icon}
+                                </div>
+                                <h3 className={styles.stepTitle}>
+                                    {step.title.split(step.highlight)[0]}
+                                    <span className={styles.highlight}>{step.highlight}</span>
+                                </h3>
+                                <p className={styles.stepDescription}>{step.description}</p>
                             </div>
-                            <h3 className={styles.stepTitle}>
-                                {step.title.split(step.highlight)[0]}
-                                <span className={styles.highlight}>{step.highlight}</span>
-                            </h3>
-                            <p className={styles.stepDescription}>{step.description}</p>
-                        </div>
 
-                        <div className={styles.imageContainer}>
-                            <Image
-                                src={step.image}
-                                alt={step.title}
-                                width={300}
-                                height={600}
-                                className={styles.mockupImage}
-                            />
+                            <div
+                                className={`${styles.imageContainer} ${index % 2 === 0 ? styles.imageFromRight : styles.imageFromLeft} ${visibleRows[index] ? styles.rowVisible : ''}`}
+                            >
+                                <Image
+                                    src={step.image}
+                                    alt={step.title}
+                                    width={300}
+                                    height={600}
+                                    className={styles.mockupImage}
+                                />
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
         </section>
     );

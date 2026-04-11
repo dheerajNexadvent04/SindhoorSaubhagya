@@ -95,6 +95,7 @@ interface AuthContextType {
     session: Session | null;
     user: User | null;
     profile: UserProfile | null;
+    profileChecked: boolean;
     loading: boolean;
     signOut: () => Promise<void>;
     refreshSession: () => Promise<void>;
@@ -104,6 +105,7 @@ const AuthContext = createContext<AuthContextType>({
     session: null,
     user: null,
     profile: null,
+    profileChecked: false,
     loading: true,
     signOut: async () => { },
     refreshSession: async () => { },
@@ -113,6 +115,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [session, setSession] = useState<Session | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [profileChecked, setProfileChecked] = useState(false);
     const [loading, setLoading] = useState(true);
 
     const applySession = (nextSession: Session | null) => {
@@ -120,6 +123,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(nextSession?.user ?? null);
 
         if (nextSession?.user) {
+            setProfileChecked(false);
             writeCachedUser({
                 id: nextSession.user.id,
                 email: nextSession.user.email ?? null,
@@ -127,10 +131,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const cachedProfile = readCachedProfile();
             if (cachedProfile && cachedProfile.id === nextSession.user.id) {
                 setProfile(cachedProfile);
+                setProfileChecked(true);
             }
             void fetchProfile(nextSession.user.id);
         } else {
             setProfile(null);
+            setProfileChecked(true);
             writeCachedProfile(null);
             writeCachedUser(null);
         }
@@ -171,17 +177,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 if (data) {
                     setProfile(data);
                     writeCachedProfile(data);
+                    setProfileChecked(true);
                     return;
                 }
 
                 const cachedProfile = readCachedProfile();
                 if (cachedProfile?.id === userId) {
                     setProfile(cachedProfile);
+                    setProfileChecked(true);
                     return;
                 }
 
                 setProfile(null);
                 writeCachedProfile(null);
+                setProfileChecked(true);
                 return;
             } catch (err) {
                 lastError = err;
@@ -197,9 +206,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const cachedProfile = readCachedProfile();
         if (cachedProfile?.id === userId) {
             setProfile(cachedProfile);
+            setProfileChecked(true);
             return;
         }
 
+        setProfileChecked(true);
         console.error("AuthProvider: profile fetch failed after retries:", lastError);
     };
 
@@ -212,6 +223,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
         if (cachedProfile && (!cachedUser || cachedProfile.id === cachedUser.id)) {
             setProfile(cachedProfile);
+            setProfileChecked(true);
         }
 
         const getInitialSession = async () => {
@@ -268,6 +280,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(null);
         setUser(null);
         setProfile(null);
+        setProfileChecked(true);
         setLoading(false);
         writeCachedProfile(null);
         writeCachedUser(null);
@@ -275,7 +288,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ session, user, profile, loading, signOut, refreshSession }}>
+        <AuthContext.Provider value={{ session, user, profile, profileChecked, loading, signOut, refreshSession }}>
             {children}
         </AuthContext.Provider>
     );

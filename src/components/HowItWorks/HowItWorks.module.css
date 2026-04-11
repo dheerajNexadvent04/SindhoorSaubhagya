@@ -1,8 +1,13 @@
 .section {
-    padding: 4rem 10%;
     background-color: var(--white);
     color: var(--text-dark);
     overflow: hidden;
+}
+
+.sectionInner {
+    max-width: 1440px;
+    margin: auto;
+    padding: 4rem 10%;
 }
 
 .heading {
@@ -45,6 +50,9 @@
 .textContent {
     flex: 1;
     max-width: 450px;
+    opacity: 0;
+    transition: transform 0.95s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.95s cubic-bezier(0.22, 0.61, 0.36, 1);
+    will-change: transform, opacity;
 }
 
 .iconContainer {
@@ -75,6 +83,30 @@
     display: flex;
     justify-content: center;
     position: relative;
+    opacity: 0;
+    transition: transform 0.95s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.95s cubic-bezier(0.22, 0.61, 0.36, 1);
+    will-change: transform, opacity;
+}
+
+.textFromLeft {
+    transform: translateX(-90px);
+}
+
+.textFromRight {
+    transform: translateX(90px);
+}
+
+.imageFromLeft {
+    transform: translateX(-90px);
+}
+
+.imageFromRight {
+    transform: translateX(90px);
+}
+
+.rowVisible {
+    opacity: 1;
+    transform: translateX(0);
 }
 
 .mockupImage {
@@ -93,6 +125,9 @@
 /* For now keeping it simple as per screenshot which seems clean */
 
 @media (max-width: 900px) {
+    .sectionInner {
+        padding: 3rem 1.2rem;
+    }
 
     .stepRow,
     .stepRow.reverse {
@@ -105,10 +140,12 @@
         order: 1;
         /* Layout: Image first or Text first on mobile? Screenshot shows text above image usually or image above text. Let's stack Text then Image for readability. */
         max-width: 100%;
+        transform: translateY(34px);
     }
 
     .imageContainer {
         order: 2;
+        transform: translateY(34px);
     }
 
     .title {

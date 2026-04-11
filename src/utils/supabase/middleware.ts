@@ -34,15 +34,19 @@ export async function updateSession(request: NextRequest) {
     // IMPORTANT: You *must* return the supabaseResponse object as it is.
     // If you're creating a new Response object, you must include the set-cookie headers from supabaseResponse.
 
+    const pathname = request.nextUrl.pathname;
+    const isAdminRoute = pathname.startsWith('/admin');
+    const isMemberRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/profile');
+
     // PROTECTED ROUTE LOGIC
     // 1. Check for /admin routes
-    if (request.nextUrl.pathname.startsWith('/admin')) {
+    if (isAdminRoute) {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
-        console.log("Middleware: Checking /admin route. Path:", request.nextUrl.pathname);
+        console.log("Middleware: Checking /admin route. Path:", pathname);
         console.log("Middleware: User found?", !!user, "ID:", user?.id);
 
         // Allow access to login page without auth
-        if (request.nextUrl.pathname === '/admin/login') {
+        if (pathname === '/admin/login') {
             if (user) {
                 // If already logged in, check if admin before redirecting to dashboard
                 // This prevents infinite redirect loop if redirects back to login on failure
@@ -72,6 +76,28 @@ export async function updateSession(request: NextRequest) {
 
         if (!adminUser) {
             console.log("Middleware: Not an admin, redirecting to home");
+            const url = request.nextUrl.clone();
+            url.pathname = '/';
+            return NextResponse.redirect(url);
+        }
+    }
+
+    if (isMemberRoute) {
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            const url = request.nextUrl.clone();
+            url.pathname = '/';
+            return NextResponse.redirect(url);
+        }
+
+        const { data: memberProfile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (!memberProfile) {
             const url = request.nextUrl.clone();
             url.pathname = '/';
             return NextResponse.redirect(url);

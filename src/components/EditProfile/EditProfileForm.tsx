@@ -571,7 +571,6 @@ const EditProfileForm = () => {
                             >
                                 <option value="">Select Religion</option>
                                 <option value="Hindu">Hindu</option>
-                                <option value="Muslim">Muslim</option>
                                 <option value="Sikh">Sikh</option>
                                 <option value="Christian">Christian</option>
                                 <option value="Jain">Jain</option>

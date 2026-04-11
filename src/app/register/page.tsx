@@ -407,7 +407,6 @@ const RegisterPage = () => {
                                     placeholder="Select Religion"
                                     options={[
                                         { value: 'Hindu', label: 'Hindu' },
-                                        { value: 'Muslim', label: 'Muslim' },
                                         { value: 'Sikh', label: 'Sikh' },
                                         { value: 'Christian', label: 'Christian' },
                                         { value: 'Jain', label: 'Jain' },

@@ -8,6 +8,7 @@ import { createClient } from '@/utils/supabase/client';
 import {
     LayoutDashboard,
     Users,
+    ShieldUser,
     LogOut,
     Menu,
     X
@@ -29,6 +30,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const navItems = [
         { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
         { label: 'User Management', href: '/admin/users', icon: Users },
+        { label: 'Admin Management', href: '/admin/admin-management', icon: ShieldUser },
     ];
 
     if (isPrintRoute) {

@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { Users, UserPlus, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState({
@@ -22,8 +23,35 @@ export default function AdminDashboard() {
     const [ownerAlertError, setOwnerAlertError] = useState<string | null>(null);
     const [ownerAlertNotice, setOwnerAlertNotice] = useState<string | null>(null);
     const [ownerAlertUpdatedAt, setOwnerAlertUpdatedAt] = useState<string | null>(null);
+    const [accessDenied, setAccessDenied] = useState(false);
 
     const [supabase] = useState(() => createClient());
+    const router = useRouter();
+
+    const verifyAdminAccess = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        setCurrentUser(user ?? null);
+
+        if (!user) {
+            setAccessDenied(true);
+            return false;
+        }
+
+        const { data: adminUser, error: adminError } = await supabase
+            .from('admin_users')
+            .select('role')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .maybeSingle();
+
+        if (adminError || !adminUser) {
+            setAccessDenied(true);
+            return false;
+        }
+
+        setAccessDenied(false);
+        return true;
+    };
 
     const fetchStats = async (mode: 'initial' | 'refresh' = 'initial') => {
         if (mode === 'initial') {
@@ -126,27 +154,51 @@ export default function AdminDashboard() {
     };
 
     useEffect(() => {
-        const loadCurrentUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setCurrentUser(user ?? null);
+        const bootstrapAccess = async () => {
+            const hasAccess = await verifyAdminAccess();
+            if (!hasAccess) {
+                setLoading(false);
+                setOwnerAlertLoading(false);
+            }
         };
-        void loadCurrentUser();
+        void bootstrapAccess();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setCurrentUser(session?.user || null);
+            if (!session?.user) {
+                setAccessDenied(true);
+                setLoading(false);
+            }
         });
 
         return () => subscription.unsubscribe();
     }, [supabase]);
 
     useEffect(() => {
-        void fetchStats('initial');
-        void fetchOwnerAlertSetting();
+        const loadDashboard = async () => {
+            const hasAccess = await verifyAdminAccess();
+            if (!hasAccess) {
+                setLoading(false);
+                setOwnerAlertLoading(false);
+                return;
+            }
 
-        const handleVisibilityOrFocus = () => {
+            await fetchStats('initial');
+            await fetchOwnerAlertSetting();
+        };
+
+        void loadDashboard();
+
+        const handleVisibilityOrFocus = async () => {
             if (document.visibilityState !== 'visible') return;
-            void fetchStats('refresh');
-            void fetchOwnerAlertSetting();
+            const hasAccess = await verifyAdminAccess();
+            if (!hasAccess) {
+                setLoading(false);
+                setOwnerAlertLoading(false);
+                return;
+            }
+            await fetchStats('refresh');
+            await fetchOwnerAlertSetting();
         };
 
         window.addEventListener('focus', handleVisibilityOrFocus);
@@ -160,6 +212,29 @@ export default function AdminDashboard() {
 
     if (loading) {
         return <div className="rounded-[28px] border border-red-100 bg-white p-10 text-center text-slate-500 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">Loading dashboard stats...</div>;
+    }
+
+    if (accessDenied) {
+        return (
+            <div className="rounded-[28px] border border-red-200 bg-red-50 p-10 text-center shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+                <h2 className="text-2xl font-bold text-red-700">Access Denied</h2>
+                <p className="mt-3 text-sm text-red-700">You are not authorized to view the admin dashboard.</p>
+                <div className="mt-6 flex justify-center gap-3">
+                    <button
+                        onClick={() => router.push('/admin/login')}
+                        className="rounded-full bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                    >
+                        Go to Admin Login
+                    </button>
+                    <button
+                        onClick={() => router.push('/')}
+                        className="rounded-full border border-red-200 bg-white px-5 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+                    >
+                        Back to Website
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     return (
