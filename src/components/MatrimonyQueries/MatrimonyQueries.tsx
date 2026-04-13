@@ -49,8 +49,8 @@ const MatrimonyQueries: React.FC = () => {
                     </div>
                     <div className={styles.imageWrapper}>
                         <Image
-                            src="/couple-formal.png"
-                            alt="Couple Formal"
+                            src="/think-people-2.png"
+                            alt="Think People 2"
                             fill
                             className={styles.image}
                         />
@@ -65,8 +65,8 @@ const MatrimonyQueries: React.FC = () => {
                     </div>
                     <div className={styles.imageWrapper}>
                         <Image
-                            src="/bride-phone.png"
-                            alt="Bride"
+                            src="/think-people-4.png"
+                            alt="Think People 4"
                             fill
                             className={styles.image}
                         />
