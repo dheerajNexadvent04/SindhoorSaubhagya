@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { User } from '@supabase/supabase-js';
 import { Users, UserPlus, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -15,7 +14,6 @@ export default function AdminDashboard() {
     });
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [ownerAlertEnabled, setOwnerAlertEnabled] = useState(true);
     const [ownerAlertLoading, setOwnerAlertLoading] = useState(true);
@@ -30,7 +28,6 @@ export default function AdminDashboard() {
 
     const verifyAdminAccess = async () => {
         const { data: { user } } = await supabase.auth.getUser();
-        setCurrentUser(user ?? null);
 
         if (!user) {
             setAccessDenied(true);
@@ -164,7 +161,6 @@ export default function AdminDashboard() {
         void bootstrapAccess();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setCurrentUser(session?.user || null);
             if (!session?.user) {
                 setAccessDenied(true);
                 setLoading(false);
@@ -357,36 +353,6 @@ export default function AdminDashboard() {
                         {ownerAlertNotice}
                     </div>
                 )}
-            </div>
-
-            {/* Debug Info */}
-            <div className="mt-8 rounded-[24px] border border-slate-200 bg-white/90 p-5 text-xs text-gray-400 shadow-[0_18px_36px_rgba(15,23,42,0.05)]">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <p>Logged in as: <span className="font-mono text-gray-600 font-bold">{currentUser?.email || 'Not logged in'}</span></p>
-                        <p>User ID: <span className="font-mono text-gray-600">{currentUser?.id || 'N/A'}</span></p>
-                        <p>Stats Loaded: <span className="font-mono text-gray-600">{errorMessage ? 'With errors' : 'Yes'}</span></p>
-                        <p className="mt-2 text-red-400">If email is &quot;Not logged in&quot; but you are on this page, your session is out of sync.</p>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <button
-                            onClick={() => void fetchStats('initial')}
-                            className="rounded-xl bg-slate-100 px-3 py-2 text-gray-600 hover:bg-slate-200"
-                        >
-                            Reload Stats
-                        </button>
-                        <button 
-                            onClick={async () => {
-                                await supabase.auth.signOut();
-                                window.location.href = '/admin/login';
-                            }}
-                            className="rounded-xl bg-red-100 px-3 py-2 text-red-600 hover:bg-red-200"
-                        >
-                            Force Logout
-                        </button>
-                    </div>
-                </div>
-                <p className="mt-4 italic">Tip: If you register new users in this same browser, your admin session may be replaced. Please use Incognito mode for testing registrations.</p>
             </div>
         </div>
     );

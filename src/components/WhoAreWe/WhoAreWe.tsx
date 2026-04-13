@@ -10,8 +10,6 @@ const WhoAreWe = () => {
             <div className={styles.container}>
                 {/* Left Side - Image */}
                 <div className={styles.imageWrapper}>
-                    {/* Using a placeholder image since the specific 'hands holding flower' wasn't found in list. 
-                        User can replace '/couple-formal.png' with the correct asset later. */}
                     <Image
                         src="/couple-formal.png"
                         alt="Who are we"

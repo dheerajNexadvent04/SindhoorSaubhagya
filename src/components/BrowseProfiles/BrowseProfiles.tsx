@@ -21,8 +21,8 @@ const DATA: Record<string, string[]> = {
         'Vokkaliga', 'Yadav'
     ],
     'Sect': [
-        'Sunni', 'Shia', 'Catholic', 'Protestant', 'Orthodox', 'Jacobite', 'Marthoma', 'Syro Malabar',
-        'Digambar', 'Shvetambar', 'Theravada', 'Mahayana', 'Hinayana', 'Radhasoami', 'Swaminarayan'
+        'Shaivism', 'Vaishnavism', 'Shaktism', 'Smartism', 'Arya Samaj', 'ISKCON',
+        'Digambar', 'Shvetambar', 'Theravada', 'Mahayana', 'Radhasoami', 'Swaminarayan'
     ],
     'State': [
         'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat',

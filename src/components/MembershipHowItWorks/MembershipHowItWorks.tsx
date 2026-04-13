@@ -6,7 +6,7 @@ const steps = [
     {
         title: "Understanding Your Preferences",
         description: "A dedicated Relationship Manager from your region will thoroughly understand your preferences, lifestyle and cultural nuances that will help in finding the best possible matches for you.",
-        image: "/mockup.png" // Placeholder, adjust if specific images are provided
+        image: "/mockup.png"
     },
     {
         title: "Recommending Matches",

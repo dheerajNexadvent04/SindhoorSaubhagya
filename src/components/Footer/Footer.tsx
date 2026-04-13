@@ -27,6 +27,8 @@ const Footer = ({
     topBarButtonText = "Register Free",
     topBarButtonHref = "/register",
 }: FooterProps) => {
+    const businessAddress = process.env.NEXT_PUBLIC_BUSINESS_ADDRESS || 'New Delhi, India';
+
     return (
         <footer className={styles.footer}>
             <div className={styles.topBar}>
@@ -79,7 +81,7 @@ const Footer = ({
                         <p className={styles.tagline}>Serious introductions for people who are ready.</p>
 
                         <div className={styles.address}>
-                            <p>Address: XYZ City, 121009</p>
+                            <p>Address: {businessAddress}</p>
                         </div>
                     </div>
 

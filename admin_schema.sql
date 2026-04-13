@@ -48,12 +48,12 @@ CREATE POLICY "Admins can view and update all photos" ON public.profile_photos
         auth.uid() IN (SELECT user_id FROM public.admin_users WHERE is_active = TRUE)
     );
 
--- 6. SEED SUPREME ADMIN (Run this AFTER the user is created via script/signup)
--- This will look up the user by email and make them a super_admin
+-- 6. SEED SUPREME ADMIN (example template)
+-- Replace <ADMIN_EMAIL> with your real admin email before running this query.
 INSERT INTO public.admin_users (user_id, email, role, is_active)
 SELECT id, email, 'super_admin', true
 FROM auth.users
-WHERE email = 'admin@sindoor.com'
+WHERE email = '<ADMIN_EMAIL>'
 ON CONFLICT (user_id) DO UPDATE
 SET role = 'super_admin', is_active = true;
 

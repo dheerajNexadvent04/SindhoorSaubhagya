@@ -36,10 +36,6 @@ export default function UserManagement() {
     const fetchUsers = async () => {
         setLoading(true);
 
-        // Debug Auth
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        console.log("Admin Dashboard - Current User:", user?.id, "Auth Error:", authError);
-
         let query = supabase
             .from('profiles')
             .select('*')
@@ -50,8 +46,6 @@ export default function UserManagement() {
         }
 
         const { data, error } = await query;
-
-        console.log("Admin Dashboard - Profiles Data:", data?.length, "Error:", error);
 
         if (error) {
             console.error('Error fetching users:', error);
