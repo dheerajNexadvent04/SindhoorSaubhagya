@@ -5,15 +5,14 @@ import styles from './Footer.module.css';
 import Link from 'next/link';
 import { Facebook, Instagram, Linkedin, Twitter } from 'lucide-react';
 
-const GALLERY_IMAGES = [
-    '/couple-traditional.png',
-    '/couple-formal.png',
-    '/couple_1.png',
-    '/bride-phone.png',
-    '/couple-traditional.png',
-    '/couple-formal.png',
-    '/couple_1.png',
-    '/bride-phone.png',
+const GALLERY_IMAGES: Array<{ src: string; size: 'big' | 'small' }> = [
+    { src: '/footer-crouser-image-bigcard1.png', size: 'big' },
+    { src: '/footer-crouser-image-smallcard1.png', size: 'small' },
+    { src: '/footer-crouser-image-bigcard2.png', size: 'big' },
+    { src: '/footer-crouser-image-smallcard2.png', size: 'small' },
+    { src: '/footer-crouser-image-bigcard-3.png', size: 'big' },
+    { src: '/footer-crouser-image-smallcard-3.png', size: 'small' },
+    { src: '/footer-crouser-image-bigcard4.png', size: 'big' },
 ];
 
 type FooterProps = {
@@ -42,10 +41,13 @@ const Footer = ({
 
             <div className={styles.marqueeSection}>
                 <div className={styles.marqueeContainer}>
-                    {[...GALLERY_IMAGES, ...GALLERY_IMAGES, ...GALLERY_IMAGES].map((src, index) => (
-                        <div key={index} className={styles.marqueeItem}>
+                    {[...GALLERY_IMAGES, ...GALLERY_IMAGES, ...GALLERY_IMAGES].map((item, index) => (
+                        <div
+                            key={index}
+                            className={`${styles.marqueeItem} ${item.size === 'big' ? styles.marqueeItemBig : styles.marqueeItemSmall}`}
+                        >
                             <Image
-                                src={src}
+                                src={item.src}
                                 alt={`Wedding Gallery ${index}`}
                                 fill
                                 className={styles.marqueeImage}

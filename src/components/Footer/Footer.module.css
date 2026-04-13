@@ -68,8 +68,6 @@
 
 .marqueeItem {
     width: 180px;
-    /* Adjust based on image aspect ratio */
-    height: 200px;
     margin-right: 20px;
     position: relative;
     border-radius: 12px;
@@ -77,11 +75,14 @@
     flex-shrink: 0;
 }
 
-.marqueeItem:nth-child(even) {
+.marqueeItemBig {
     height: 240px;
-    /* Varying heights as requested */
     margin-top: -20px;
-    /* Offset for staggered look */
+}
+
+.marqueeItemSmall {
+    height: 200px;
+    margin-top: 0;
 }
 
 .marqueeImage {
