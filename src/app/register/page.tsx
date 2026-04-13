@@ -207,7 +207,7 @@ const RegisterPage = () => {
     return (
         <div className={styles.registerContainer}>
             <div className={styles.formCard}>
-                <h1 className={styles.pageTitle}>Who Are You Looking For?</h1>
+                <h1 className={styles.pageTitle}>Who Are You Looking For ?</h1>
                 <p className={styles.pageSubtitle}>This profile is being created for</p>
 
                 {error && <div className={styles.errorMsg}>{error}</div>}

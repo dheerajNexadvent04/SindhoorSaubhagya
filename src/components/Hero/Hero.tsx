@@ -316,7 +316,7 @@ const Hero = () => {
 
                 <div className={styles.formCard}>
                     <h3 className={styles.formTitle}>
-                        {step === 1 && "Who Are You Looking For?"}
+                                            {step === 1 && "Who Are You Looking For ?"}
                         {step === 2 && "Step 2 - Profile For + Basic Info"}
                         {step === 3 && "Step 3 - Personal Details"}
                         {step === 4 && "Step 4 - Career & Education"}

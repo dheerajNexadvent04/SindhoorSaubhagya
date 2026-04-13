@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './update-password.module.css';
 import { supabase } from '@/lib/supabase';
@@ -12,9 +12,36 @@ export default function UpdatePassword() {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [sessionReady, setSessionReady] = useState(false);
+
+    useEffect(() => {
+        const bootstrapRecoverySession = async () => {
+            const urlError = new URLSearchParams(window.location.search).get('error');
+            if (urlError) {
+                setError(urlError);
+                return;
+            }
+
+            const { data, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError) {
+                setError(sessionError.message);
+                return;
+            }
+
+            if (!data.session?.user) {
+                setError('Reset link is invalid or expired. Please request a new reset link.');
+                return;
+            }
+
+            setSessionReady(true);
+        };
+
+        void bootstrapRecoverySession();
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!sessionReady) return;
         setLoading(true);
         setError(null);
         setMessage(null);
@@ -92,7 +119,11 @@ export default function UpdatePassword() {
                         {loading ? 'Updating...' : 'Update Password'}
                     </button>
                 </form>
+                {!sessionReady && !error && (
+                    <p style={{ marginTop: '16px', color: '#6b7280' }}>Preparing secure reset session...</p>
+                )}
             </div>
         </div>
     );
 }
+
