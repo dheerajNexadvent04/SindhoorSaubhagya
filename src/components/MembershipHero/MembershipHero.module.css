@@ -31,10 +31,11 @@
 }
 
 .heading {
-    font-size: 2.8rem;
-    line-height: 1.25;
+    font-size: 3.2rem;
+    line-height: 1.18;
     margin-bottom: 20px;
-    font-weight: 300;
+    font-weight: 700;
+    max-width: 760px;
 }
 
 .heading strong {
@@ -42,9 +43,18 @@
 }
 
 .subHeading {
-    font-size: 1.1rem;
-    margin-bottom: 32px;
-    font-weight: 300;
+    font-size: 2rem;
+    line-height: 1.4;
+    margin-bottom: 10px;
+    font-weight: 400;
+    max-width: 980px;
+}
+
+.subHeadingAlt {
+    font-size: 1rem;
+    margin-bottom: 28px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.9);
 }
 
 /* Form Styles */
@@ -112,18 +122,11 @@
     box-shadow: 0 4px 12px rgba(219, 162, 87, 0.4);
 }
 
-.submitButton:disabled {
-    cursor: not-allowed;
-    opacity: 0.8;
-    transform: none;
-    box-shadow: none;
-}
-
-.submitMessage {
-    margin-top: 12px;
-    font-size: 0.9rem;
+.trustLine {
+    margin-top: 16px;
+    font-size: 1.2rem;
+    color: #fff;
     font-weight: 500;
-    color: #ffe6e6;
 }
 
 .imageCol {
@@ -184,6 +187,16 @@
 
     .heading {
         font-size: 2.2rem;
+        max-width: 100%;
+    }
+
+    .subHeading {
+        font-size: 1.6rem;
+        max-width: 100%;
+    }
+
+    .subHeadingAlt {
+        margin-bottom: 20px;
     }
 
     .formContainer {
@@ -211,9 +224,5 @@
         padding: 16px;
         border-radius: 25px;
         width: 100%;
-    }
-
-    .submitMessage {
-        text-align: center;
     }
 }

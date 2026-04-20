@@ -8,80 +8,43 @@ import styles from './Navbar.module.css';
 import { useModal } from '@/context/ModalContext';
 import { useAuth } from '@/context/AuthProvider';
 import { usePathname } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 const Navbar = () => {
     const { openLogin } = useModal();
-    const { session, user, profile, profileChecked } = useAuth();
+    const { user, profile, loading: authLoading, signOut, refreshSession } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const pathname = usePathname();
-    const isAuthenticated = Boolean((session?.user || user) && (!profileChecked || profile?.id));
+
+    const handleLogout = async () => {
+        console.log("Navbar: Logging out...");
+        await signOut();
+        window.location.href = '/';
+    };
 
     const toggleMobileMenu = () => {
         setIsMobileMenuOpen(!isMobileMenuOpen);
     };
 
+    // Fix for "stale logout" bug when using browser back button or Next.js router cache
     useEffect(() => {
-        if (!isMobileMenuOpen) return;
-        const previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
-        return () => {
-            document.body.style.overflow = previousOverflow;
-        };
-    }, [isMobileMenuOpen]);
-
-    // Hide Navbar on Admin and Dashboard pages
-    if (pathname?.startsWith('/admin') || pathname?.startsWith('/dashboard')) {
-        return null;
-    }
-
-    const displayName = profile
-        ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
-        : ((session?.user?.email || user?.email)?.split('@')[0] || 'My Account');
-    const primaryPhoto = profile?.photo_url || profile?.photos?.[0] || null;
-
-    const normalizedStatus = profile?.status === 'approved'
-        ? 'Approved'
-        : profile?.status === 'pending'
-            ? 'Pending'
-            : profile?.status
-                ? 'Disabled'
-                : 'Pending';
-
-    const statusClassName = normalizedStatus === 'Approved'
-        ? styles.statusApproved
-        : normalizedStatus === 'Pending'
-            ? styles.statusPending
-            : styles.statusDisabled;
-    const announcementItems = [
-        '100% verified profiles',
-        "India's one of the best online matchmaking website",
-        'Trusted by more than 50 couples',
-        'Get in touch today',
-        'Find matches as per your requirements',
-    ];
-    const renderMarqueeLine = (keyPrefix: string) => (
-        <span className={styles.announcementLine}>
-            {announcementItems.map((item, index) => (
-                <span key={`${keyPrefix}-${item}-${index}`} className={styles.announcementItem}>
-                    {item}
-                    {index < announcementItems.length - 1 && (
-                        <span className={styles.announcementSeparator} aria-hidden="true">
-                            |
-                        </span>
-                    )}
-                </span>
-            ))}
-        </span>
-    );
+        if (!authLoading && !user) {
+            const checkSession = async () => {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.user) {
+                    console.log("Navbar: Stale auth state detected (Found session without user context). Forcing refresh.");
+                    refreshSession();
+                }
+            };
+            checkSession();
+        }
+    }, [pathname, authLoading, user, refreshSession]);
 
     return (
         <>
             <nav className={styles.navbarContainer}>
                 <div className={styles.topBar}>
-                    <div className={styles.topBarTrack}>
-                        {renderMarqueeLine('a')}
-                        <span aria-hidden="true">{renderMarqueeLine('b')}</span>
-                    </div>
+                    50% OFF ON MEMBERSHIP PLANS
                 </div>
 
                 <div className={styles.mainNav}>
@@ -103,31 +66,37 @@ const Navbar = () => {
                         <Link href="/" className={styles.navLink}>Home</Link>
                         <Link href="/membership" className={styles.navLink}>Membership</Link>
                         <Link href="/about" className={styles.navLink}>About Us</Link>
-                        {isAuthenticated && <Link href="/profile" className={styles.navLink}>View Profile</Link>}
-                        <Link href="/contact" className={styles.navLink}>Contact Us</Link>
+                        {user && <Link href="/profile" className={styles.navLink}>View Profile</Link>}
                     </div>
 
                     {/* Desktop Auth Buttons / User Profile */}
                     <div className={styles.authButtons}>
-                        {isAuthenticated ? (
-                            <Link href="/dashboard" className={styles.accountBadge}>
+                        {authLoading ? (
+                            <div className={styles.authPlaceholder}></div>
+                        ) : user ? (
+                            <Link href="/dashboard" className={styles.userWidget}>
                                 <div className={styles.userImageContainer}>
-                                    {primaryPhoto ? (
+                                    {profile?.photo_url || (profile?.photos && profile.photos[0]) ? (
                                         <Image
-                                            src={primaryPhoto}
+                                            src={profile.photo_url || profile.photos[0] || "/image 1.png"}
                                             alt="User"
                                             fill
                                             className={styles.userImage}
                                             unoptimized
                                         />
                                     ) : (
-                                        <User size={22} color="#999" />
+                                        <User size={20} color="#999" />
                                     )}
                                 </div>
                                 <div className={styles.userWidgetInfo}>
-                                    <span className={styles.userWidgetName}>{displayName || 'My Account'}</span>
-                                    <span className={`${styles.statusBadge} ${statusClassName}`}>{normalizedStatus}</span>
+                                    <span className={styles.userWidgetName}>
+                                        {profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : (user.email?.split('@')[0] || 'My Account')}
+                                    </span>
+                                    <span className={styles.userWidgetRole}>{profile?.is_premium ? 'Premium' : 'Free Member'}</span>
                                 </div>
+                                <button className={styles.btnLogoutSmall} onClick={(e) => { e.preventDefault(); handleLogout(); }}>
+                                    Logout
+                                </button>
                             </Link>
                         ) : (
                             <>
@@ -138,7 +107,7 @@ const Navbar = () => {
                     </div>
 
                     {/* Mobile Menu Button */}
-                    <button className={styles.mobileMenuBtn} onClick={toggleMobileMenu} aria-expanded={isMobileMenuOpen}>
+                    <button className={styles.mobileMenuBtn} onClick={toggleMobileMenu}>
                         {isMobileMenuOpen ? (
                             <X size={28} />
                         ) : (
@@ -154,23 +123,20 @@ const Navbar = () => {
                 </div>
 
                 {/* Mobile Menu Overlay */}
-                <div
-                    className={`${styles.mobileMenuOverlay} ${isMobileMenuOpen ? styles.open : ''}`}
-                    onClick={toggleMobileMenu}
-                ></div>
+                {isMobileMenuOpen && (
+                    <div className={styles.mobileMenuOverlay} onClick={toggleMobileMenu}></div>
+                )}
 
                 <div className={`${styles.mobileMenu} ${isMobileMenuOpen ? styles.open : ''}`}>
                     <div className={styles.mobileCloseHeader}>
-                        <Link href="/" onClick={toggleMobileMenu}>
-                            <Image
-                                src="/logo 1.png"
-                                alt="Sindoor"
-                                width={120}
-                                height={40}
-                                style={{ objectFit: 'contain' }}
-                            />
-                        </Link>
-                        <button onClick={toggleMobileMenu} className={styles.mobileCloseBtn}>
+                        <Image
+                            src="/logo 1.png"
+                            alt="Sindoor"
+                            width={120}
+                            height={40}
+                            style={{ objectFit: 'contain' }}
+                        />
+                        <button onClick={toggleMobileMenu} style={{ background: 'none', border: 'none', color: '#d32f2f', cursor: 'pointer' }}>
                             <X size={28} />
                         </button>
                     </div>
@@ -179,30 +145,34 @@ const Navbar = () => {
                         <Link href="/" className={styles.mobileNavLink} onClick={toggleMobileMenu}>Home</Link>
                         <Link href="/membership" className={styles.mobileNavLink} onClick={toggleMobileMenu}>Membership</Link>
                         <Link href="/about" className={styles.mobileNavLink} onClick={toggleMobileMenu}>About Us</Link>
-                        {isAuthenticated && <Link href="/profile" className={styles.mobileNavLink} onClick={toggleMobileMenu}>View Profile</Link>}
-                        <Link href="/contact" className={styles.mobileNavLink} onClick={toggleMobileMenu}>Contact Us</Link>
+                        {user && <Link href="/profile" className={styles.mobileNavLink} onClick={toggleMobileMenu}>View Profile</Link>}
                     </div>
 
                     <div className={styles.mobileAuthButtons}>
-                        {isAuthenticated ? (
-                            <Link href="/dashboard" className={styles.accountBadge} onClick={toggleMobileMenu}>
+                        {authLoading ? null : user ? (
+                            <Link href="/dashboard" className={styles.userWidget} onClick={toggleMobileMenu}>
                                 <div className={styles.userImageContainer}>
-                                    {primaryPhoto ? (
+                                    {profile?.photo_url || (profile?.photos && profile.photos[0]) ? (
                                         <Image
-                                            src={primaryPhoto}
+                                            src={profile.photo_url || profile.photos[0] || "/image 1.png"}
                                             alt="User"
                                             fill
                                             className={styles.userImage}
                                             unoptimized
                                         />
                                     ) : (
-                                        <User size={22} color="#999" />
+                                        <User size={20} color="#999" />
                                     )}
                                 </div>
                                 <div className={styles.userWidgetInfo}>
-                                    <span className={styles.userWidgetName}>{displayName || 'My Account'}</span>
-                                    <span className={`${styles.statusBadge} ${statusClassName}`}>{normalizedStatus}</span>
+                                    <span className={styles.userWidgetName}>
+                                        {profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : (user.email?.split('@')[0] || 'My Account')}
+                                    </span>
+                                    <span className={styles.userWidgetRole}>{profile?.is_premium ? 'Premium' : 'Free Member'}</span>
                                 </div>
+                                <button className={styles.btnLogoutSmall} onClick={(e) => { e.preventDefault(); handleLogout(); }}>
+                                    Logout
+                                </button>
                             </Link>
                         ) : (
                             <>
